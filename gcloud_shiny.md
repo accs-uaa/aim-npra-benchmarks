@@ -170,6 +170,7 @@ sudo su - -c "R -e \"install.packages('rmarkdown', repos='http://cran.rstudio.co
 sudo su - -c "R -e \"install.packages('tidyverse', repos='http://cran.rstudio.com/')\""
 sudo su - -c "R -e \"install.packages('leaflet', repos='http://cran.rstudio.com/')\""
 sudo su - -c "R -e \"install.packages('plotly', repos='http://cran.rstudio.com/')\""
+sudo su - -c "R -e \"install.packages('shinythemes', repos='http://cran.rstudio.com/')\""
 ```
 
 Install latest R Studio Server. The version may need to be updated from below.

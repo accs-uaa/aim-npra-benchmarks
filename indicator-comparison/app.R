@@ -14,9 +14,10 @@ library(dplyr)
 library(leaflet)
 library(plotly)
 library(stringr)
+library(shinythemes)
 
 # Set root directory
-drive = 'srv'
+drive = '/srv'
 root_folder = 'shiny-server'
 
 # Define input folders
@@ -50,28 +51,31 @@ indicator_list = as.list(c('depth_restrictive_layer_cm', 'depth_moss_duff_cm'))
 #### CREATE WEB APPLICATION
 
 # Define page layout
-ui = fluidPage(
-  
-  # App title
-  titlePanel("Indicator comparison among strata"),
-  
-  # Sidebar layout
-  sidebarLayout(
-    
-    # Sidebar panel for user inputs and map outputs
-    sidebarPanel(
-      selectInput('indicator',
-                  'Choose an indicator',
-                  indicator_list)
-    ),
-    
-    # Main panel for displaying outputs
-    mainPanel(
-      plotlyOutput('indicator_plot'),
-      textOutput('summary_title'),
-      dataTableOutput('summary_table')
-    )
-  )
+ui = fluidPage(theme = shinytheme('lumen'),
+               
+               # App title
+               tags$h1('Indicator comparison among strata', align = 'center'),
+               tags$br(),
+               
+               # Sidebar layout
+               sidebarLayout(
+                 
+                 # Sidebar panel for user inputs and map outputs
+                 sidebarPanel(
+                   selectInput('indicator',
+                               'Choose an indicator',
+                               indicator_list)
+                 ),
+                 
+                 # Main panel for displaying outputs
+                 mainPanel(
+                   plotlyOutput('indicator_plot', height = 450),
+                   tags$h2("Summary Table"),
+                   dataTableOutput('summary_table'),
+                   tags$br(),
+                   tags$br()
+                 )
+               )
 )
 
 # Create server function to process inputs and outputs
@@ -95,8 +99,7 @@ server = function(input, output) {
     environment_data
   })
   
-  # Create output text and tables
-  output$summary_title <- renderText('Summary Statistics')
+  # Create output table
   output$summary_table <- renderDataTable({
     summary_table = environment_filtered() %>%
       select(strata, selected) %>%
@@ -125,16 +128,17 @@ server = function(input, output) {
               text = ~paste('</br> site visit code: ', site_visit_code,
                             '</br> Indicator Value: ', selected)
       ) %>%
-      layout( yaxis = list(title = input$indicator)) %>%
+      layout( yaxis = list(title = str_replace_all(input$indicator, '_', ' '))) %>%
       layout( yaxis = list(titlefont = list(size = 22), tickfont = list(size = 22))) %>%
       layout( xaxis = list(zerolinecolor = '#ffff',
                            zerolinewidth = 2,
                            gridcolor = 'ffff',
-                           showticklabels=FALSE))
+                           showticklabels=TRUE)) %>%
+      layout(showlegend = FALSE)
     # Display plot
     print(p)
   })
 }
 
 # Create Shiny app ----
-shinyApp(ui, server) 
+shinyApp(ui, server)

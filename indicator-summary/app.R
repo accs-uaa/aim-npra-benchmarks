@@ -14,9 +14,10 @@ library(dplyr)
 library(leaflet)
 library(plotly)
 library(stringr)
+library(shinythemes)
 
 # Set root directory
-drive = 'srv'
+drive = '/srv'
 root_folder = 'shiny-server'
 
 # Define input folders
@@ -48,40 +49,46 @@ site_data = readr::read_csv(site_file) %>%
   mutate(strata = str_replace(site_code, "-.*", ""))
 
 # Define input pick list
-strata_list = as.list(unique(environment_data['strata']))
+strata_list = as.vector(unique(environment_data['strata']))[[1]]
+strata_list = strata_list[-1]
+strata_list = strata_list[-2]
+strata_list = strata_list[-2]
+strata_list = strata_list[-12]
 indicator_list = as.list(c('depth_restrictive_layer_cm', 'depth_moss_duff_cm'))
 
 #### CREATE WEB APPLICATION
 
 # Define page layout
-ui = fluidPage(
-  
-  # App title
-  titlePanel("Summary statistics per stratum"),
-  
-  # Sidebar layout
-  sidebarLayout(
-    
-    # Sidebar panel for user inputs and map outputs
-    sidebarPanel(
-      selectInput('stratum',
-                  'Select stratum',
-                  strata_list),
-      selectInput('indicator',
-                  'Choose an indicator',
-                  indicator_list),
-      leafletOutput('site_map')
-      ),
-    
-    # Main panel for displaying outputs
-    mainPanel(
-      plotlyOutput('indicator_plot'),
-      textOutput('summary_title'),
-      dataTableOutput('summary_table'),
-      textOutput('outlier_title'),
-      verbatimTextOutput('outlier_table')
-    )
-  )
+ui = fluidPage(theme = shinytheme('lumen'),
+               
+               # App title
+               tags$h1('Summary statistics per stratum', align = 'center'),
+               tags$br(),
+               
+               # Sidebar layout
+               sidebarLayout(
+                 
+                 # Sidebar panel for user inputs and map outputs
+                 sidebarPanel(
+                   selectInput('stratum',
+                               'Select stratum',
+                               strata_list),
+                   selectInput('indicator',
+                               'Choose an indicator',
+                               indicator_list),
+                   tags$h2('Selected Sites'),
+                   leafletOutput('site_map')
+                 ),
+                 
+                 # Main panel for displaying outputs
+                 mainPanel(
+                   plotlyOutput('indicator_plot', height = 450),
+                   tags$h2("Summary Table"),
+                   dataTableOutput('summary_table'),
+                   tags$br(),
+                   tags$br()
+                 )
+               )
 )
 
 # Create server function to process inputs and outputs
@@ -112,11 +119,10 @@ server = function(input, output) {
         "https://geoportal.alaska.gov/arcgis/services/ahri_2020_rgb_cache/MapServer/WMSServer",
         layers = 1,
         options = WMSTileOptions(format = "image/png", transparent = FALSE)) %>%
-      addCircleMarkers(lng = ~longitude_dd, lat = ~latitude_dd, radius = 1, popup = ~site_code)
+      addCircleMarkers(lng = ~longitude_dd, lat = ~latitude_dd, radius = 1, popup = ~site_code, color = 'red')
     m})
   
-  # Create output text and tables
-  output$summary_title <- renderText('Summary Statistics')
+  # Create output table
   output$summary_table <- renderDataTable({
     summary_table = environment_filtered() %>%
       select(selected) %>%
@@ -128,7 +134,7 @@ server = function(input, output) {
                 maximum = round(max(selected), 1))
     datatable(summary_table, options = list(dom = 't'), rownames=FALSE)
   })
-
+  
   # Create output plot
   output$indicator_plot <- renderPlotly({
     p = environment_filtered() %>%
@@ -136,7 +142,7 @@ server = function(input, output) {
               type = 'violin',
               box = list(
                 visible = T
-                ),
+              ),
               points = "all", 
               jitter = 0.3,
               pointpos = 0,
@@ -145,8 +151,8 @@ server = function(input, output) {
               hoverinfo = 'text',
               text = ~paste('</br> site visit code: ', site_visit_code,
                             '</br> Indicator Value: ', selected)
-              ) %>%
-      layout( yaxis = list(title = input$indicator)) %>%
+      ) %>%
+      layout( yaxis = list(title = str_replace_all(input$indicator, '_', ' '))) %>%
       layout( yaxis = list(titlefont = list(size = 22), tickfont = list(size = 22))) %>%
       layout( xaxis = list(zerolinecolor = '#ffff',
                            zerolinewidth = 2,
