@@ -4,7 +4,21 @@
 
 *Last Updated*: 2024-01-11
 
-*Description*: This document contains instructions and commands for deploying a Shiny server on a Google Cloud virtual machine (vm). If preferred, all of the configuration steps can also be scripted using the Google Cloud SDK. Users should download and install the [Google Cloud SDK](https://cloud.google.com/sdk/) regardless because it is necessary for file uploads and downloads.
+*Description*: This document contains instructions and commands for deploying a Shiny server on a Google Cloud virtual machine (vm). If preferred, all of the configuration steps can also be scripted using the Google Cloud SDK.
+
+## Required software
+
+[Google Cloud CLI](https://cloud.google.com/sdk/): Necessary for file uploads and downloads. Note this was previously known as Google Cloud SDK.
+
+### Configure Google Cloud CLI
+
+If this is your first time running Google Cloud CLI, you will need to setup your account. Open the Google Cloud SDK Shell program and type in:
+
+```         
+gcloud init
+```
+
+Log in using your alaska.edu credentials.
 
 ## 1. Configure project
 
@@ -16,15 +30,15 @@ Create a new storage bucket if necessary. This example uses the "accs-shiny" buc
 
 Use the "gsutil cp -r" command to copy data to and from the bucket. Example:
 
-```
+```         
 gsutil cp -r gs://accs-shiny/* ~/shiny/
 ```
 
-The '*' is a wildcard. The target directory should already exist in the virtual machine or local machine. If the google bucket is the target, the bucket will create a new directory from the copy command.
+The '\*' is a wildcard. The target directory should already exist in the virtual machine or local machine. If the google bucket is the target, the bucket will create a new directory from the copy command.
 
 ### Configure a firewall rule to allow browser access for RStudio:
 
-The firewall rule must be configured once per project. Navigate to VPC Network -> Firewall and create new firewall rule with the following features:
+The firewall rule must be configured once per project. Navigate to VPC Network -\> Firewall and create new firewall rule with the following features:
 
 *Name*: rstudio-rule
 
@@ -50,12 +64,11 @@ The firewall rule must be configured once per project. Navigate to VPC Network -
 
 *Destination filter*: None
 
-*Protocols/ports*: Specified protocols and ports
-    Check "tcp" and enter "8787"
+*Protocols/ports*: Specified protocols and ports Check "tcp" and enter "8787"
 
 ### Configure a firewall rule to allow browser access for Shiny:
 
-The firewall rule must be configured once per project. Navigate to VPC Network -> Firewall and create a new firewall rule with the following features:
+The firewall rule must be configured once per project. Navigate to VPC Network -\> Firewall and create a new firewall rule with the following features:
 
 *Name*: shiny-rule
 
@@ -81,8 +94,7 @@ The firewall rule must be configured once per project. Navigate to VPC Network -
 
 *Destination filter*: None
 
-*Protocols/ports*: Specified protocols and ports
-    Check "tcp" and enter "3838"
+*Protocols/ports*: Specified protocols and ports Check "tcp" and enter "3838"
 
 ## 2. Configure a new vm instance
 
@@ -94,7 +106,7 @@ After hitting the create button, the new instance will start automatically.
 
 *Name*: accs_shiny
 
-*Region*: us-west1 (Oregon) 
+*Region*: us-west1 (Oregon)
 
 *Zone*: us-west1-b
 
@@ -114,7 +126,7 @@ After hitting the create button, the new instance will start automatically.
 
 ### Reserve external static IP address
 
-The vm has an ephemeral IP address, but this will not enable consistent access. To enable consistent access, you must associate an external static IP address with the vm. Navigate to VPC Network -> External IP Addresses. Click "Reserve a static address" and enter the following information.
+The vm has an ephemeral IP address, but this will not enable consistent access. To enable consistent access, you must associate an external static IP address with the vm. Navigate to VPC Network -\> External IP Addresses. Click "Reserve a static address" and enter the following information.
 
 *Name*: shiny-ip
 
@@ -134,7 +146,7 @@ The vm has an ephemeral IP address, but this will not enable consistent access. 
 
 Launch the terminal in a browser window using ssh to accomplish the following steps. Update the system prior to installing software and then install necessary dependencies.
 
-```
+```         
 sudo apt-get update
 sudo apt install -y build-essential
 sudo apt-get -y install nginx
@@ -147,7 +159,7 @@ sudo apt-get update
 
 Add the CRAN repository to the system sources list. The version referenced in the example below may need to be updated. The repository version should match the Ubuntu Linux LTS release version. The version below is for 22.04 LTS.
 
-```
+```         
 wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sudo gpg --dearmor -o /usr/share/keyrings/r-project.gpg
 echo "deb [signed-by=/usr/share/keyrings/r-project.gpg] https://cloud.r-project.org/bin/linux/ubuntu jammy-cran40/" | sudo tee -a /etc/apt/sources.list.d/r-project.list
 sudo apt update
@@ -155,14 +167,14 @@ sudo apt update
 
 Install latest R release and check R version.
 
-```
+```         
 sudo apt-get -y install r-base
 R --version
 ```
 
 Install necessary R libraries globally. The "devtools" installation will require around 15 minutes.
 
-```
+```         
 sudo su - -c "R -e \"install.packages('devtools', repos='http://cran.rstudio.com/')\""
 sudo su - -c "R -e \"install.packages('DT', repos='http://cran.rstudio.com/')\""
 sudo su - -c "R -e \"install.packages('shiny', repos='http://cran.rstudio.com/')\""
@@ -175,7 +187,7 @@ sudo su - -c "R -e \"install.packages('shinythemes', repos='http://cran.rstudio.
 
 Install latest R Studio Server. The version may need to be updated from below.
 
-```
+```         
 wget https://download2.rstudio.org/server/jammy/amd64/rstudio-server-2023.12.0-369-amd64.deb
 sudo gdebi rstudio-server-2023.12.0-369-amd64.deb
 rm rstudio-server-2023.12.0-369-amd64.deb
@@ -183,7 +195,7 @@ rm rstudio-server-2023.12.0-369-amd64.deb
 
 Install latest Shiny Server. The version may need to be updated from below.
 
-```
+```         
 wget https://download3.rstudio.org/ubuntu-18.04/x86_64/shiny-server-1.5.21.1012-amd64.deb
 sudo gdebi shiny-server-1.5.21.1012-amd64.deb
 rm shiny-server-1.5.21.1012-amd64.deb
@@ -195,25 +207,25 @@ Once R Studio Server and Shiny Server are installed, they will automatically sta
 
 Add a separate user for R Studio that will have a password separate from the Google authentication. Enter the password at the prompt. In this example, I used username "accs_rstudio".
 
-```
+```         
 sudo adduser accs_rstudio
 ```
 
 Add the new user to the super user group.
 
-```
+```         
 sudo usermod -aG sudo accs_rstudio
 ```
 
 The new username and password will serve as the login information for RStudio Server. All of the files accessible to RStudio must be added to the RStudio user. To switch user within the Ubuntu shell, enter the following command:
 
-```
+```         
 su accs_rstudio
 ```
 
 To enable RStudio to have read and write access over the new user directory:
 
-```
+```         
 sudo chown -R accs_rstudio /home/accs_rstudio/
 sudo chmod -R 770 /home/accs_rstudio/
 ```
@@ -224,13 +236,13 @@ When transferring files after transferring ownership, 'sudo' must precede the 'g
 
 Shiny apps are executed by a user called "shiny" in the directory "/srv/shiny-server". The permissions for the shiny server folder need to be enabled for all users.
 
-```
+```         
 sudo chmod -R a+rwx /srv/shiny-server/
 ```
 
 ### Download files to the virtual machine:
 
-```
+```         
 cd ~
 mkdir ~/example
 gsutil cp -r gs://beringia/example/* ~/example/
@@ -242,24 +254,24 @@ The vm instance is now configured and ready to run processes on R Studio Server.
 
 Creating a custom disk image will allow additional vms to be created that are identical to the template including all files and installed software. This can save much time when creating clusters of vms.
 
-1. Stop the vm
-2. Select Compute Engine -> Images
-3. Click 'Create Image'
-4. Name the image
-5. Leave 'Family' blank
-6. Select the template vm as the 'Source disk'
+1.  Stop the vm
+2.  Select Compute Engine -\> Images
+3.  Click 'Create Image'
+4.  Name the image
+5.  Leave 'Family' blank
+6.  Select the template vm as the 'Source disk'
 
 Once the image creates successfully, other vm can be created using the custom image, obviating the need to install software and load files for each vm independently.
 
 ## 3. Access R Studio Server or Shiny
 
-RStudio and Shiny will be running automatically once set up. They do not need manual start and stop. In a browser, navigate to http://<your_VM_IP>:8787/ for RStudio and http://<your_VM_IP>:3838/ for Shiny. Individual shiny apps can be loaded as http://<your_VM_IP>:3838/APP_NAME/
+RStudio and Shiny will be running automatically once set up. They do not need manual start and stop. In a browser, navigate to <http://><your_VM_IP>:8787/ for RStudio and <http://><your_VM_IP>:3838/ for Shiny. Individual shiny apps can be loaded as <http://><your_VM_IP>:3838/APP_NAME/
 
 **IMPORTANT: When finished, the instance must be stopped to prevent being billed additional time**.
 
 The instance can be stopped in the browser interface or by typing the following command into the Google Cloud console:
 
-```
+```         
 gcloud compute instances stop --zone=us-west1-b <instance_name>
 ```
 
@@ -268,3 +280,34 @@ gcloud compute instances stop --zone=us-west1-b <instance_name>
 ## 4. Assign domain name and replace port names
 
 TBD: NGINX can be used to replace port names. Assign domain name & get security certificate. Enforce https.
+
+## 5. Upload files
+There are 2 steps to access files in the R Shiny app: 1) upload file from local machine to Google Storage Bucket; 2) copy file from Google Storage Bucket to Google VM
+
+### Upload file from local machine to Storage Bucket
+You can upload a file either using Google SDK or through the Google Cloud browser interface.
+
+If using the browser interface, log into the [Google Cloud Console](https://console.cloud.google.com/), select the appropriate project (accs-shiny in our case), and access Storage. Choose the bucket and folder you want to upload the file to, then click on Upload Files. Multiple files can uploaded at once.
+
+### Copy file from Storage Bucket to VM
+Connect to the Virtual Machine in the Google Cloud SDK Shell 
+
+```
+gcloud compute ssh <vm-name>
+```
+
+In our situation, the <vm-name> is accs-shiny.
+
+You can also connect using the SSH-in-Browser option from within Google Cloud Console, in which case you do not need to enter the previous line of code.
+
+Copy files from the storage bucket to the vm using the gsutil cp function:
+
+```
+sudo gsutil cp gs://accs-shiny/indicator-summary/data/* /srv/shiny-server/indicator-summary/data
+```
+
+Where gs:// is the address of your storage bucket and /srv/... is the location on your vm that you want to copy files to.
+
+
+
+
