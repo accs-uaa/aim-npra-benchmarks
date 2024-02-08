@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # Summarize AIM indicators
 # Author: Amanda Droghini, Timm Nawrocki, Alaska Center for Conservation Science
-# Last Updated: 2024-02-06
+# Last Updated: 2024-02-07
 # Usage: Script should be executed in R 4.3.2+.
 # Description: "Summarize AIM indicators" creates an indicator summary table from the AKVEG Database.
 # ---------------------------------------------------------------------------
@@ -26,7 +26,7 @@ data_folder = path(drive, root_folder, 'Projects/VegetationEcology/BLM_AIM_NPRA_
 akveg_repository = 'C:/ACCS_Work/GitHub/akveg-database'
 benchmark_repository= 'C:/ACCS_Work/GitHub/aim-npra-benchmarks'
 query_folder = path(benchmark_repository, 'queries')
-credentials_folder = path("C:/ACCS_Work/Servers_Websites/Credentials/accs-postgresql")
+credentials_folder = path(drive, root_folder, 'Administrative/Credentials/akveg_private_read')
 
 # Define input files
 site_visit_file = path(query_folder, 'npra_03_site_visit_query.sql')
@@ -37,10 +37,20 @@ shrub_file = path(query_folder, 'npra_11_shrub_query.sql')
 environment_file = path(query_folder, 'npra_12_environment_query.sql')
 soil_metrics_file = path(query_folder, 'npra_13_soil_metrics_query.sql')
 soil_horizons_file = path(query_folder, 'npra_14_soil_horizons_query.sql')
-herbaceous_file = path(data_folder, '15_herbaceousstructure_aimvarious2021.csv')
+herbaceous_input = path(data_folder, 'Data/Data_Input/herbaceous/15_herbaceousstructure_aimvarious2021.csv')
+strata_input = path(data_folder, 'Data/Data_Output/strata/AIM_NPRA_Strata.csv')
+functional_input = path(data_folder, 'Data/Data_Output/functional_groups/AIM_NPRA_Functional_Groups.csv')
 
 # Define output files
 output_file = path(data_folder, 'AIM_NPRA_Indicator_Summary.csv')
+
+# Read local data
+strata_data = read_csv(strata_input)
+functional_data = read_csv(functional_input)
+herbaceous_data = read_csv(herbaceous_input)
+
+#### QUERY AKVEG DATABASE
+####------------------------------
 
 # Import database connection function
 connection_script = path(akveg_repository, 'package_DataProcessing', 'connect_database_postgresql.R')
@@ -82,10 +92,8 @@ soil_metrics_data = as_tibble(dbGetQuery(database_connection, soil_metrics_query
 soil_horizons_query = read_file(soil_horizons_file)
 soil_horizons_data = as_tibble(dbGetQuery(database_connection, soil_horizons_query)) # 4 sites missing data
 
-# Read herbaceous heights data from local folder
-herbaceous_data = read_csv(herbaceous_file)
-
-# Calculate abiotic top cover indicator ----
+#### CALCULATE ENVIRONMENTAL INDICATORS
+####------------------------------
 
 # Calculate bare ground cover percent
 # Where bare ground cover % = soil + rock fragments
