@@ -23,9 +23,8 @@ root_folder = 'ACCS_Work'
 
 # Define input folders
 data_folder = path(drive, root_folder, 'Projects/VegetationEcology/BLM_AIM_NPRA_Benchmarks')
-akveg_repository = 'C:/Users/timmn/Documents/Repositories/akveg-database'
-benchmark_repository= 'C:/Users/timmn/Documents/Repositories/aim-npra-benchmarks'
-query_folder = path(benchmark_repository, 'queries')
+akveg_repository = path(drive, root_folder, 'Repositories/akveg-database')
+query_folder = path(drive, root_folder, 'Repositories/aim-npra-benchmarks/queries')
 credentials_folder = path(drive, root_folder, 'Administrative/Credentials/akveg_private_read')
 
 # Define input files

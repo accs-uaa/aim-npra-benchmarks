@@ -23,9 +23,8 @@ root_folder = 'ACCS_Work'
 
 # Define input folders
 data_folder = path(drive, root_folder, 'Projects/VegetationEcology/BLM_AIM_NPRA_Benchmarks')
-akveg_repository = 'C:/Users/timmn/Documents/Repositories/akveg-database'
-benchmark_repository= 'C:/Users/timmn/Documents/Repositories/aim-npra-benchmarks'
-query_folder = path(benchmark_repository, 'queries')
+akveg_repository = path(drive, root_folder, 'Repositories/akveg-database')
+query_folder = path(drive, root_folder, 'Repositories/aim-npra-benchmarks/queries')
 credentials_folder = path(drive, root_folder, 'Administrative/Credentials/akveg_private_read')
 
 # Define input files
@@ -154,7 +153,15 @@ taxon_data = taxon_data %>%
                                    taxon_accepted == 'Eriophorum scheuchzeri ssp. scheuchzeri' ~ 'wetland sedge',
                                    taxon_accepted == 'Eriophorum triste' ~ 'wetland sedge',
                                    taxon_accepted == 'Eriophorum viridicarinatum' ~ 'wetland sedge',
-                                   TRUE ~ 'none'))
+                                   TRUE ~ 'none')) %>%
+  mutate(mesic_moss = case_when(taxon_family == 'Hylocomiaceae' ~ 'mesic moss',
+                                taxon_family == 'Dicranaceae' ~ 'mesic moss',
+                                taxon_accepted == 'Ptilium crista-castrensis' ~ 'mesic moss',
+                                taxon_genus == 'Aulacomnium' ~ 'mesic moss',
+                                taxon_accepted == 'Tomentypnum nitens' ~ 'mesic moss',
+                                taxon_family == 'Polytrichaceae' ~ 'mesic moss',
+                                taxon_genus == 'Rhytidium' ~ 'mesic moss',
+                                TRUE ~ 'none'))
 
 # Export strata table
 write.csv(taxon_data, file = taxon_output, fileEncoding = 'UTF-8', row.names = FALSE)

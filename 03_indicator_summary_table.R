@@ -23,9 +23,8 @@ root_folder = 'ACCS_Work'
 
 # Define input folders
 data_folder = path(drive, root_folder, 'Projects/VegetationEcology/BLM_AIM_NPRA_Benchmarks')
-akveg_repository = 'C:/ACCS_Work/GitHub/akveg-database'
-benchmark_repository= 'C:/ACCS_Work/GitHub/aim-npra-benchmarks'
-query_folder = path(benchmark_repository, 'queries')
+akveg_repository = path(drive, root_folder, 'Repositories/akveg-database')
+query_folder = path(drive, root_folder, 'Repositories/aim-npra-benchmarks/queries')
 credentials_folder = path(drive, root_folder, 'Administrative/Credentials/akveg_private_read')
 
 # Define input files
@@ -42,7 +41,7 @@ strata_input = path(data_folder, 'Data/Data_Output/strata/AIM_NPRA_Strata.csv')
 functional_input = path(data_folder, 'Data/Data_Output/functional_groups/AIM_NPRA_Functional_Groups.csv')
 
 # Define output files
-output_file = path(data_folder, 'AIM_NPRA_Indicator_Summary.csv')
+indicators_output = path(data_folder, 'Data/Data_Output/summary/AIM_NPRA_Indicator_Summary.csv')
 
 # Read local data
 strata_data = read_csv(strata_input)
@@ -57,7 +56,7 @@ connection_script = path(akveg_repository, 'package_DataProcessing', 'connect_da
 source(connection_script)
 
 # Create a connection to the AKVEG PostgreSQL database
-authentication = path(credentials_folder, 'authentication_akveg.csv')
+authentication = path(credentials_folder, 'authentication_akveg_private.csv')
 database_connection = connect_database_postgresql(authentication)
 
 # Read site visit data from AKVEG Database
@@ -196,7 +195,9 @@ indicators = indicators %>%
   mutate(shrub_herbaceous_height_ratio = case_when(!is.na(shrub_mean_height_cm) & !is.na(herbaceous_mean_height_cm) ~
                                                      shrub_mean_height_cm / 
                                                      (shrub_mean_height_cm + herbaceous_mean_height_cm + 0.001),
-                                                   is.na(shrub_mean_height_cm) | is.na(herbaceous_mean_height_cm) ~ NA)) %>% 
+                                                   is.na(shrub_mean_height_cm) & !is.na(herbaceous_mean_height_cm) ~ 0,
+                                                   !is.na(shrub_mean_height_cm) & is.na(herbaceous_mean_height_cm) ~ 1,
+                                                   is.na(shrub_mean_height_cm) & is.na(herbaceous_mean_height_cm) ~ NA)) %>% 
   mutate(shrub_herbaceous_height_ratio = round(shrub_herbaceous_height_ratio, digits = 2))
 
 # QA/QC
@@ -272,17 +273,495 @@ indicators = indicators %>%
 #### CALCULATE VEGETATION INDICATORS
 ####------------------------------
 
-# Calculate wetland indicators
+# Calculate wetland sedge indicator
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(wetland_sedge == 'wetland sedge' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(wetsed_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(wetsed_cover_percent = case_when(is.na(wetsed_cover_percent) ~ 0,
+                                          TRUE ~ wetsed_cover_percent))
+
+# Calculate facultative wet indicator
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(wetland_status == 'FACW' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(facw_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(facw_cover_percent = case_when(is.na(facw_cover_percent) ~ 0,
+                                        TRUE ~ facw_cover_percent))
+
+# Calculate obligate wet indicator
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(wetland_status == 'OBL' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(obl_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(obl_cover_percent = case_when(is.na(obl_cover_percent) ~ 0,
+                                       TRUE ~ obl_cover_percent))
+
+# Calculate aquatic moss cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(nv_functional_gr == 'aquatic moss' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(aqumos_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(aqumos_cover_percent = case_when(is.na(aqumos_cover_percent) ~ 0,
+                                          TRUE ~ aqumos_cover_percent))
+
+# Calculate Sphagnum cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_genus == 'Sphagnum' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(sphagn_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(sphagn_cover_percent = case_when(is.na(sphagn_cover_percent) ~ 0,
+                                          TRUE ~ sphagn_cover_percent))
+
+# Calculate mesic moss cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(mesic_moss == 'mesic moss' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(mesmos_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(mesmos_cover_percent = case_when(is.na(mesmos_cover_percent) ~ 0,
+                                          TRUE ~ mesmos_cover_percent))
+
+# Calculate n-fixing feathermoss cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(nv_functional_gr == 'N-fixing feathermoss' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(nfeamos_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(nfeamos_cover_percent = case_when(is.na(nfeamos_cover_percent) ~ 0,
+                                           TRUE ~ nfeamos_cover_percent))
+
+# Calculate Umbilicaria cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_genus == 'Umbilicaria' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(umbili_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(umbili_cover_percent = case_when(is.na(umbili_cover_percent) ~ 0,
+                                          TRUE ~ umbili_cover_percent))
+
+# Calculate lichen cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_category == 'lichen' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(lichen_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(lichen_cover_percent = case_when(is.na(lichen_cover_percent) ~ 0,
+                                          TRUE ~ lichen_cover_percent))
+
+# Calculate tussock cover (includes live and dead material from Eriophorum vaginatum and Eriophorum brachyantherum)
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Eriophorum vaginatum' | name_accepted == 'Eriophorum brachyantherum') %>%
+  group_by(site_visit_code) %>%
+  summarize(tussock_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(tussock_cover_percent = case_when(is.na(tussock_cover_percent) ~ 0,
+                                          TRUE ~ tussock_cover_percent))
+
+# Calculate Poaceae cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_family == 'Poaceae' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(poafam_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(poafam_cover_percent = case_when(is.na(poafam_cover_percent) ~ 0,
+                                          TRUE ~ poafam_cover_percent))
+
+# Calculate Rosaceae cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_family == 'Rosaceae' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(rosfam_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(rosfam_cover_percent = case_when(is.na(rosfam_cover_percent) ~ 0,
+                                          TRUE ~ rosfam_cover_percent))
+
+# Calculate Ericaceae cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_family == 'Ericaceae' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(erifam_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(erifam_cover_percent = case_when(is.na(erifam_cover_percent) ~ 0,
+                                          TRUE ~ erifam_cover_percent))
+
+# Calculate Betula cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_genus == 'Betula' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(betula_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(betula_cover_percent = case_when(is.na(betula_cover_percent) ~ 0,
+                                          TRUE ~ betula_cover_percent))
+
+# Calculate Salix cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_genus == 'Salix' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(salix_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(salix_cover_percent = case_when(is.na(salix_cover_percent) ~ 0,
+                                          TRUE ~ salix_cover_percent))
+
+# Calculate shrub cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((taxon_habit == 'dwarf shrub' | taxon_habit == 'dwarf shrub, shrub'
+          | taxon_habit == 'dwarf shrub, shrub, tree' | taxon_habit == 'shrub') & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(shrub_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(shrub_cover_percent = case_when(is.na(shrub_cover_percent) ~ 0,
+                                         TRUE ~ shrub_cover_percent))
+
+# Calculate herbaceous cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((taxon_habit == 'forb' | taxon_habit == 'graminoid') & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(herbac_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(herbac_cover_percent = case_when(is.na(herbac_cover_percent) ~ 0,
+                                         TRUE ~ herbac_cover_percent))
+
+# Calculate dwarf shrub cover
+shrub_join = shrub_data %>%
+  filter(height_type == 'point-intercept mean') %>%
+  filter(name_accepted != 'shrub') %>%
+  select(site_visit_code, name_accepted, height_cm)
+shrub_typical = shrub_join %>%
+  group_by(name_accepted) %>%
+  summarize(mean_cm = mean(height_cm))
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((taxon_habit == 'dwarf shrub' | taxon_habit == 'dwarf shrub, shrub'
+          | taxon_habit == 'dwarf shrub, shrub, tree' | taxon_habit == 'shrub') & dead_status == 'FALSE') %>%
+  left_join(shrub_join, by = c('site_visit_code' = 'site_visit_code', 'name_accepted' = 'name_accepted')) %>%
+  left_join(shrub_typical, by = 'name_accepted') %>%
+  mutate(height_cm = case_when(!is.na(height_cm) ~ height_cm,
+                               is.na(height_cm) & !is.na(mean_cm) ~ mean_cm,
+                               is.na(height_cm) & is.na(mean_cm)
+                               & (taxon_habit == 'dwarf shrub' | taxon_habit == 'dwarf shrub, shrub') ~ 10,
+                               is.na(height_cm) & is.na(mean_cm)
+                               & (taxon_habit == 'shrub' | taxon_habit == 'dwarf shrub, shrub, tree') ~ 30,
+                               TRUE ~ -999)) %>%
+  filter(height_cm <= 20) %>%
+  group_by(site_visit_code) %>%
+  summarize(dwashr_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(dwashr_cover_percent = case_when(is.na(dwashr_cover_percent) ~ 0,
+                                         TRUE ~ dwashr_cover_percent))
+
+# Calculate low shrub cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((taxon_habit == 'dwarf shrub' | taxon_habit == 'dwarf shrub, shrub'
+          | taxon_habit == 'dwarf shrub, shrub, tree' | taxon_habit == 'shrub') & dead_status == 'FALSE') %>%
+  left_join(shrub_join, by = c('site_visit_code' = 'site_visit_code', 'name_accepted' = 'name_accepted')) %>%
+  left_join(shrub_typical, by = 'name_accepted') %>%
+  mutate(height_cm = case_when(!is.na(height_cm) ~ height_cm,
+                               is.na(height_cm) & !is.na(mean_cm) ~ mean_cm,
+                               is.na(height_cm) & is.na(mean_cm)
+                               & (taxon_habit == 'dwarf shrub' | taxon_habit == 'dwarf shrub, shrub') ~ 10,
+                               is.na(height_cm) & is.na(mean_cm)
+                               & (taxon_habit == 'shrub' | taxon_habit == 'dwarf shrub, shrub, tree') ~ 30,
+                               TRUE ~ -999)) %>%
+  filter(height_cm > 20 & height_cm <= 150) %>%
+  group_by(site_visit_code) %>%
+  summarize(lowshr_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(lowshr_cover_percent = case_when(is.na(lowshr_cover_percent) ~ 0,
+                                          TRUE ~ lowshr_cover_percent))
+
+# Calculate tall shrub cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((taxon_habit == 'dwarf shrub' | taxon_habit == 'dwarf shrub, shrub'
+          | taxon_habit == 'dwarf shrub, shrub, tree' | taxon_habit == 'shrub') & dead_status == 'FALSE') %>%
+  left_join(shrub_join, by = c('site_visit_code' = 'site_visit_code', 'name_accepted' = 'name_accepted')) %>%
+  left_join(shrub_typical, by = 'name_accepted') %>%
+  mutate(height_cm = case_when(!is.na(height_cm) ~ height_cm,
+                               is.na(height_cm) & !is.na(mean_cm) ~ mean_cm,
+                               is.na(height_cm) & is.na(mean_cm)
+                               & (taxon_habit == 'dwarf shrub' | taxon_habit == 'dwarf shrub, shrub') ~ 10,
+                               is.na(height_cm) & is.na(mean_cm)
+                               & (taxon_habit == 'shrub' | taxon_habit == 'dwarf shrub, shrub, tree') ~ 30,
+                               TRUE ~ -999)) %>%
+  filter(height_cm > 150) %>%
+  group_by(site_visit_code) %>%
+  summarize(talshr_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(talshr_cover_percent = case_when(is.na(talshr_cover_percent) ~ 0,
+                                          TRUE ~ talshr_cover_percent))
+
+# Calculate Eriophorum vaginatum cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Eriophorum vaginatum' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(erivag_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(erivag_cover_percent = case_when(is.na(erivag_cover_percent) ~ 0,
+                                          TRUE ~ erivag_cover_percent))
+
+# Calculate Rhododendron tomentosum cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((name_accepted == 'Rhododendron tomentosum' | name_accepted == 'Rhododendron tomentosum ssp. decumbens')
+         & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(rhotom_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(rhotom_cover_percent = case_when(is.na(rhotom_cover_percent) ~ 0,
+                                          TRUE ~ rhotom_cover_percent))
+
+# Calculate Puccinellia phryganodes cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Puccinellia phryganodes' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(pucphr_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(pucphr_cover_percent = case_when(is.na(pucphr_cover_percent) ~ 0,
+                                          TRUE ~ pucphr_cover_percent))
+
+# Calculate Vaccinium vitis-idaea cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Vaccinium vitis-idaea' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(vacvit_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(vacvit_cover_percent = case_when(is.na(vacvit_cover_percent) ~ 0,
+                                          TRUE ~ vacvit_cover_percent))
 
 
+# Calculate Betula nana cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((name_accepted == 'Betula nana' | name_accepted == 'Betula nana ssp. exilis')
+         & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(betnan_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(betnan_cover_percent = case_when(is.na(betnan_cover_percent) ~ 0,
+                                          TRUE ~ betnan_cover_percent))
+
+# Calculate Leymus cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_genus == 'Leymus' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(leymus_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(leymus_cover_percent = case_when(is.na(leymus_cover_percent) ~ 0,
+                                          TRUE ~ leymus_cover_percent))
+
+# Calculate Salix pulchra cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Salix pulchra' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(salpul_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(salpul_cover_percent = case_when(is.na(salpul_cover_percent) ~ 0,
+                                          TRUE ~ salpul_cover_percent))
+
+# Calculate Stellaria humifusa cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Stellaria humifusa' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(stehum_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(stehum_cover_percent = case_when(is.na(stehum_cover_percent) ~ 0,
+                                          TRUE ~ stehum_cover_percent))
+
+# Calculate Aulacomnium cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_genus == 'Aulacomnium' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(aulaco_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(aulaco_cover_percent = case_when(is.na(aulaco_cover_percent) ~ 0,
+                                          TRUE ~ aulaco_cover_percent))
+
+# Calculate Carex aquatilis cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Carex aquatilis' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(caraqu_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(caraqu_cover_percent = case_when(is.na(caraqu_cover_percent) ~ 0,
+                                          TRUE ~ caraqu_cover_percent))
+
+# Calculate Dryas ajanensis cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((name_accepted == 'Dryas ajanensis' | name_accepted == 'Dryas ajanensis ssp. beringensis')
+         & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(dryaja_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(dryaja_cover_percent = case_when(is.na(dryaja_cover_percent) ~ 0,
+                                          TRUE ~ dryaja_cover_percent))
+
+# Calculate Dicranum cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_genus == 'Dicranum' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(dicran_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(dicran_cover_percent = case_when(is.na(dicran_cover_percent) ~ 0,
+                                          TRUE ~ dicran_cover_percent))
+
+# Calculate Salix alaxensis cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Salix alaxensis' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(salala_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(salala_cover_percent = case_when(is.na(salala_cover_percent) ~ 0,
+                                          TRUE ~ salala_cover_percent))
+
+# Calculate Carex chordorrhiza cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Carex chordorrhiza' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(carcho_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(carcho_cover_percent = case_when(is.na(carcho_cover_percent) ~ 0,
+                                          TRUE ~ carcho_cover_percent))
+
+# Calculate Arctous rubra cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Arctous rubra' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(arcrub_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(arcrub_cover_percent = case_when(is.na(arcrub_cover_percent) ~ 0,
+                                          TRUE ~ arcrub_cover_percent))
+
+# Calculate Scorpidium cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_genus == 'Scorpidium' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(scorpi_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(scorpi_cover_percent = case_when(is.na(scorpi_cover_percent) ~ 0,
+                                          TRUE ~ scorpi_cover_percent))
+
+# Calculate Oxytropis bryophila cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Oxytropis bryophila' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(oxybry_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(oxybry_cover_percent = case_when(is.na(oxybry_cover_percent) ~ 0,
+                                          TRUE ~ oxybry_cover_percent))
+
+# Calculate Equisetum arvense cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Equisetum arvense' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(equarv_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(equarv_cover_percent = case_when(is.na(equarv_cover_percent) ~ 0,
+                                          TRUE ~ equarv_cover_percent))
+
+# Calculate Cladonia cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_genus == 'Cladonia' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(cladon_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(cladon_cover_percent = case_when(is.na(cladon_cover_percent) ~ 0,
+                                          TRUE ~ cladon_cover_percent))
+
+# Calculate Rubus chamaemorus cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Rubus chamaemorus' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(rubcha_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(rubcha_cover_percent = case_when(is.na(rubcha_cover_percent) ~ 0,
+                                          TRUE ~ rubcha_cover_percent))
+
+# Calculate Salix phlebophylla cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Salix phlebophylla' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(salphl_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(salphl_cover_percent = case_when(is.na(salphl_cover_percent) ~ 0,
+                                          TRUE ~ salphl_cover_percent))
+
+# Calculate Alectoria cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(taxon_genus == 'Alectoria' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(alecto_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(alecto_cover_percent = case_when(is.na(alecto_cover_percent) ~ 0,
+                                          TRUE ~ alecto_cover_percent))
+
+# Calculate Carex subspathacea cover
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(name_accepted == 'Carex subspathacea' & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(carsub_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(carsub_cover_percent = case_when(is.na(carsub_cover_percent) ~ 0,
+                                          TRUE ~ carsub_cover_percent))
+
+# Calculate vascular species richness
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter(nv_functional_gr == 'vascular') %>%
+  group_by(site_visit_code) %>%
+  summarize(species_richness = n()) %>%
+  right_join(indicators, by = 'site_visit_code')
 
 #### EXPORT DATA
 ####------------------------------
 
 # Join strata table
+output_data = strata_data %>%
+  left_join(indicators, by = 'site_visit_code')
 
-# Export to CSV
-write_csv(indicators,output_file)
-
-# Clear workspace
-rm(list=ls())
+# Export strata table
+write.csv(output_data, file = indicators_output, fileEncoding = 'UTF-8', row.names = FALSE)
