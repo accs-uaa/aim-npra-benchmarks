@@ -95,21 +95,14 @@ soil_horizons_data = as_tibble(dbGetQuery(database_connection, soil_horizons_que
 #### CALCULATE ENVIRONMENTAL INDICATORS
 ####------------------------------
 
-# Calculate bare ground cover percent
-# Where bare ground cover % = soil + rock fragments
+# Calculate bare ground cover percent (ground cover % = soil + rock fragments)
 indicators = abiotic_data %>% 
   group_by(site_visit_code) %>% 
   filter(abiotic_element == "soil" | abiotic_element == "rock fragments") %>% 
   summarize(bare_ground_cover_percent = sum(abiotic_top_cover_percent)) %>% 
   mutate(bare_ground_cover_percent = round(x=bare_ground_cover_percent,digits=2))
 
-# Calculate environment indicators ----
-
-# Summary of depth_15_percent_coarse_fragments_cm not included since most sites (248/261) have a value of -999 for that variable
-
-# 1. depth_moss_duff_cm 
-# No filtering or summarizaton needed, simply append to existing indicators table
-# Replace -999 (null) values with NA
+# Calculate depth_moss_duff_cm (Replace -999 values with NA)
 indicators = environment_data %>% 
   group_by(site_visit_code) %>% 
   mutate(depth_moss_duff_cm = na_if(depth_moss_duff_cm, -999)) %>%
@@ -119,11 +112,7 @@ indicators = environment_data %>%
 
 summary(indicators$depth_moss_duff_cm)
 
-# 2. depth_active_layer_cm
-# restrictive_type == permafrost & sites with -999 for depth or restrictive_type != permafrost should be dropped
-
-# Select only permafrost sites
-# Drop any permafrost sites that have a NULL value for depth (listed as -999). In this dataset, all values with a depth_restrictive_layer == -999 have NA as a restrictive type.
+# Calculate depth_active_layer_cm (restrictive_type == permafrost & sites with -999 for depth or restrictive_type != permafrost should be dropped)
 indicators = environment_data %>% 
   group_by(site_visit_code) %>% 
   filter(restrictive_type == "permafrost") %>% 
@@ -135,8 +124,7 @@ indicators = environment_data %>%
 
 summary(indicators$depth_active_layer_cm)
 
-# 3. surface_water_depth_cm 
-# Ddrop -999 and positive (+) values; make negative values positive
+# Calculate surface_water_depth_cm (drop -999 and positive (+) values; make negative values positive)
 indicators = environment_data %>% 
   group_by(site_visit_code) %>% 
   filter(depth_water_cm != -999 & depth_water_cm <= 0) %>% 
@@ -148,10 +136,7 @@ indicators = environment_data %>%
 # QA/QC: All surface water values are positive
 summary(indicators$surface_water_depth_cm)
 
-# Calculate ground cover indicators ----
-
-# Calculate surface_water_cover_percent (ground_element == water)
-# Calculate biotic_cover_percent (ground_element == biotic)
+# Calculate surface_water_cover_percent (ground_element == water) and biotic_cover_percent (ground_element == biotic)
 indicators = ground_data %>% 
   group_by(site_visit_code) %>% 
   filter(ground_element == "water" | ground_element == "biotic") %>% 
@@ -162,7 +147,10 @@ indicators = ground_data %>%
   right_join(indicators, by = "site_visit_code") %>% 
   arrange(site_visit_code)
 
-# Calculate herbaceous height indicator ----
+#### CALCULATE HEIGHT INDICATORS
+####------------------------------
+
+# Calculate herbaceous height indicator
 indicators = herbaceous_data %>% 
   group_by(site_visit_code) %>%
   filter(name_adjudicated == "herbaceous") %>% # Missing CPBWM-29
@@ -179,7 +167,7 @@ indicators = herbaceous_data %>%
 summary(indicators$herbaceous_mean_height_cm) # One site missing (CPBWM-29)
 summary(indicators$herbaceous_max_height_cm) # All values greater than mean heights
 
-# Calculate shrub height indicator ----
+# Calculate shrub height indicator
 indicators = shrub_data %>% 
   group_by(site_visit_code) %>% 
   filter(name_accepted == "shrub") %>% 
@@ -202,7 +190,7 @@ indicators = shrub_data %>%
 summary(indicators$shrub_mean_height_cm) # Should be only one NA from CPBWM-29; all others were converted to zero
 summary(indicators$shrub_max_height_cm) # All values greater than mean heights
 
-# Calculate shrub/herb ratio height indicator ----
+# Calculate shrub/herb ratio height indicator
 indicators = indicators %>% 
   group_by(site_visit_code) %>% 
   mutate(shrub_herbaceous_height_ratio = case_when(!is.na(shrub_mean_height_cm) & !is.na(herbaceous_mean_height_cm) ~
@@ -214,7 +202,8 @@ indicators = indicators %>%
 # QA/QC
 summary(indicators$shrub_herbaceous_height_ratio) # 1 missing site; ratio bounded by 0 and 1
 
-# Calculate soil metrics indicator ----
+#### CALCULATE SOIL INDICATORS
+####------------------------------
 
 # Order of priority for value to retain: if water measurement exists, use it; then if 10 cm measurement exists, use it; then if 30 cm measurement exists, use it.
 
@@ -235,8 +224,6 @@ indicators = soil_metrics_data %>%
 summary(indicators$soil_pH) # 6 sites with NAs
 
 soil_metrics_data %>% filter(ph == -999) %>% nrow() # 8 entries with null values, but 2 sites had 2 entries each (6 unique sites)
-
-# Calculate soil horizons indicators ----
 
 # Calculate organic depth
 indicators = soil_horizons_data %>% 
@@ -281,6 +268,18 @@ summary(indicators$organic_mineral_ratio_30_cm) # 4 sites with missing values; r
 indicators = indicators %>% 
   select(site_visit_code, organic_mineral_ratio_30_cm, organic_depth_cm,
          soil_pH,shrub_herbaceous_height_ratio,everything())
+
+#### CALCULATE VEGETATION INDICATORS
+####------------------------------
+
+# Calculate wetland indicators
+
+
+
+#### EXPORT DATA
+####------------------------------
+
+# Join strata table
 
 # Export to CSV
 write_csv(indicators,output_file)
