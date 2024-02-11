@@ -1,0 +1,81 @@
+/*
+	Theme Name: AIM-NPRA
+	Description: Stylesheet contains configuration specific to the AIM-NPRA shiny app.
+	Author: Timm Nawrocki, Alaska Center for Conservation Science
+	Last Updated: 2024-02-11
+*/
+
+h1, h2, h3, h4, h5 {
+	margin-top: 0px;
+}
+
+#header {
+	display: inline-block;
+	padding-top: 10px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid black;
+	margin-bottom: 20px;
+	width: 100%;
+}
+
+#logo {
+	float: left;
+	width: 300px;
+}
+
+#header h1 {
+	display: inline-block;
+	padding-top: 15px;
+	margin-left: 50px;
+}
+
+#banner {
+	width: 100%;
+	margin-bottom: 20px;
+}
+
+.col-sm-4 {
+	width: 350px;
+}
+
+.col-sm-8 {
+	width: calc(100% - 350px);
+}
+
+#introduction, #plot_section, #map_section, #data_section, #summary_section, #legend_section {
+	width: 95%;
+}
+
+/* Responsive design
+--------------------------------------------- */
+@media only screen and (max-width: 960px) {
+	#header {
+		display: block;
+	}
+	
+	#header h1 {
+		display: block;
+		text-align: center;
+		margin: auto;
+		padding-top: 15px;
+	}
+	
+	#logo {
+		float: none;
+		display:block;
+		margin: auto;
+		padding-top: 15px;
+	}
+	
+	.col-sm-4 {
+		width: 100%;
+	}
+	
+	.col-sm-8 {
+		width: 100%;
+	}
+	
+	#introduction, #plot_section, #map_section, #data_section, #summary_section, #legend_section {
+		margin: auto;
+	}
+}

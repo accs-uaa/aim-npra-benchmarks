@@ -183,6 +183,8 @@ sudo su - -c "R -e \"install.packages('tidyverse', repos='http://cran.rstudio.co
 sudo su - -c "R -e \"install.packages('leaflet', repos='http://cran.rstudio.com/')\""
 sudo su - -c "R -e \"install.packages('plotly', repos='http://cran.rstudio.com/')\""
 sudo su - -c "R -e \"install.packages('shinythemes', repos='http://cran.rstudio.com/')\""
+sudo su - -c "R -e \"install.packages('shinyjs', repos='http://cran.rstudio.com/')\""
+sudo su - -c "R -e \"install.packages('shinywidgets', repos='http://cran.rstudio.com/')\""
 ```
 
 Install latest R Studio Server. The version may need to be updated from below.
@@ -245,7 +247,7 @@ sudo chmod -R a+rwx /srv/shiny-server/
 ```         
 cd ~
 mkdir ~/example
-gsutil cp -r gs://beringia/example/* ~/example/
+gsutil cp -r gs://accs-shiny/example/* ~/example/
 ```
 
 The vm instance is now configured and ready to run processes on R Studio Server.
@@ -267,7 +269,7 @@ Once the image creates successfully, other vm can be created using the custom im
 
 RStudio and Shiny will be running automatically once set up. They do not need manual start and stop. In a browser, navigate to <http://><your_VM_IP>:8787/ for RStudio and <http://><your_VM_IP>:3838/ for Shiny. Individual shiny apps can be loaded as <http://><your_VM_IP>:3838/APP_NAME/
 
-**IMPORTANT: When finished, the instance must be stopped to prevent being billed additional time**.
+**IMPORTANT: When finished, the instance must be stopped to prevent being billed additional time**. UNLESS this instance is set up as a persistent server, in which case it should remain on so that users can access the site.
 
 The instance can be stopped in the browser interface or by typing the following command into the Google Cloud console:
 
@@ -277,11 +279,7 @@ gcloud compute instances stop --zone=us-west1-b <instance_name>
 
 **IMPORTANT: Release static ip address after instance is deleted to avoid being billed for unattached static ip.**
 
-## 4. Assign domain name and replace port names
-
-TBD: NGINX can be used to replace port names. Assign domain name & get security certificate. Enforce https.
-
-## 5. Upload files
+## 4. Upload files
 There are 2 steps to access files in the R Shiny app: 1) upload file from local machine to Google Storage Bucket; 2) copy file from Google Storage Bucket to Google VM
 
 ### Upload file from local machine to Storage Bucket
@@ -303,11 +301,79 @@ You can also connect using the SSH-in-Browser option from within Google Cloud Co
 Copy files from the storage bucket to the vm using the gsutil cp function:
 
 ```
-sudo gsutil cp gs://accs-shiny/indicator-summary/data/* /srv/shiny-server/indicator-summary/data
+sudo gsutil cp gs://accs-shiny/example-app/data/* /srv/shiny-server/example-app/data
 ```
 
 Where gs:// is the address of your storage bucket and /srv/... is the location on your vm that you want to copy files to.
 
+## 5. Assign domain name and replace port names
 
+A domain or subdomain must be provisioned through a registrar. Once the domain name is provisioned, a DNS A record should be set to point the domain/subdomain to the static IP address of the VM. The A record will require some time to propagate, after which the static IP can be replaced by the domain/subdomain (e.g., http://test.domain.org:3838).
 
+### Provision SSL certificate
+
+To enable https on the url, the VM must have an SSL certificate installed. The instructions below use Let's Encrypt CertBot.
+
+```
+sudo apt install certbot python3-certbot-nginx
+sudo certbot --nginx -d test.domain.org
+```
+
+Following the CertBot command, you may need to enter your email to create an account with Let's Encrypt. Answer the prompts if necessary. The process should complete with a message that the certificate was successfully installed. If this is not the case, then shut down the vm, turn it back on, and try the command again selecting the option to reinstall.
+
+### Configure NGINX
+
+NGINX handles the server rules for enforcing https and assigning a port to the domain. The domain/subdomain port should be set so that the Shiny Server appears at the base url. Individual apps will then appear as pages of that url (e.g., https://test.subdomain.org/example-app). The following configuration files should be edited using nano. The command to save and exit in nano is cntrl+x.
+
+```
+sudo service nginx stop
+sudo nano /etc/nginx/nginx.conf
+```
+
+Once in the file, navigate down towards the end of the http section. Insert the following text above the section titled "Virtual Host Configs".
+
+```
+##
+# Map proxy settings for RStudio
+##
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+```
+
+Next, open the following configuration for editing in nano:
+
+```
+sudo nano /etc/nginx/sites-available/default
+```
+
+This configuration contains mostly default information; however, CertBot has populated some of the information related to the ssl certificate. Do not delete the SSL section. Edit the file to contain the following information (the defaults should be deleted). The domain/subdomain and IP address should be replaced to actual values.
+
+```
+server {
+   listen 80 default_server;
+   listen [::]:80 default_server ipv6only=on;
+   server_name test.domain.org;
+   return 301 https://$server_name$request_uri;
+}
+server {
+   [SECTION AUTO-POPULATED BY CERTBOT]
+ 
+   location / {
+       proxy_pass http://123.123.123.123:3838;
+       proxy_redirect http://123.123.123.123:3838/ https://$host/;
+       proxy_http_version 1.1;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection $connection_upgrade;
+       proxy_read_timeout 20d;
+   }
+}
+```
+
+Now you must start NGINX again (or restart the VM). I usually restart the VM because it also restarts Shiny Server.
+
+```
+sudo service nginx start
+```
 

@@ -42,6 +42,7 @@ functional_input = path(data_folder, 'Data/Data_Output/functional_groups/AIM_NPR
 
 # Define output files
 indicators_output = path(data_folder, 'Data/Data_Output/summary/AIM_NPRA_Indicator_Summary.csv')
+longform_output = path(data_folder, 'Data/Data_Output/summary/AIM_NPRA_Indicator_Value.csv')
 
 # Read local data
 strata_data = read_csv(strata_input)
@@ -61,7 +62,8 @@ database_connection = connect_database_postgresql(authentication)
 
 # Read site visit data from AKVEG Database
 site_visit_query = read_file(site_visit_file)
-site_visit_data = as_tibble(dbGetQuery(database_connection, site_visit_query))
+site_visit_data = as_tibble(dbGetQuery(database_connection, site_visit_query)) %>%
+  select(-site_code)
 
 # Read vegetation cover data from AKVEG Database
 vegetation_query = read_file(vegetation_file)
@@ -156,15 +158,15 @@ indicators = herbaceous_data %>%
   pivot_wider(id_cols = site_visit_code, 
               names_from = height_type, 
               values_from = height_cm) %>% 
-  rename(herbaceous_mean_height_cm = "point-intercept mean",
-         herbaceous_max_height_cm = "point-intercept 98th percentile") %>% 
-  select(site_visit_code,herbaceous_mean_height_cm, herbaceous_max_height_cm) %>% 
+  rename(herbac_mean_height_cm = "point-intercept mean",
+         herbac_max_height_cm = "point-intercept 98th percentile") %>% 
+  select(site_visit_code,herbac_mean_height_cm, herbac_max_height_cm) %>% 
   right_join(indicators, by = "site_visit_code") %>% 
   arrange(site_visit_code)
 
 # QA/QC
-summary(indicators$herbaceous_mean_height_cm) # One site missing (CPBWM-29)
-summary(indicators$herbaceous_max_height_cm) # All values greater than mean heights
+summary(indicators$herbac_mean_height_cm) # One site missing (CPBWM-29)
+summary(indicators$herbac_max_height_cm) # All values greater than mean heights
 
 # Calculate shrub height indicator
 indicators = shrub_data %>% 
@@ -192,16 +194,16 @@ summary(indicators$shrub_max_height_cm) # All values greater than mean heights
 # Calculate shrub/herb ratio height indicator
 indicators = indicators %>% 
   group_by(site_visit_code) %>% 
-  mutate(shrub_herbaceous_height_ratio = case_when(!is.na(shrub_mean_height_cm) & !is.na(herbaceous_mean_height_cm) ~
-                                                     shrub_mean_height_cm / 
-                                                     (shrub_mean_height_cm + herbaceous_mean_height_cm + 0.001),
-                                                   is.na(shrub_mean_height_cm) & !is.na(herbaceous_mean_height_cm) ~ 0,
-                                                   !is.na(shrub_mean_height_cm) & is.na(herbaceous_mean_height_cm) ~ 1,
-                                                   is.na(shrub_mean_height_cm) & is.na(herbaceous_mean_height_cm) ~ NA)) %>% 
-  mutate(shrub_herbaceous_height_ratio = round(shrub_herbaceous_height_ratio, digits = 2))
+  mutate(shrub_herbac_height_ratio = case_when(!is.na(shrub_mean_height_cm) & !is.na(herbac_mean_height_cm) ~
+                                                 shrub_mean_height_cm / 
+                                                 (shrub_mean_height_cm + herbac_mean_height_cm + 0.001),
+                                               is.na(shrub_mean_height_cm) & !is.na(herbac_mean_height_cm) ~ 0,
+                                               !is.na(shrub_mean_height_cm) & is.na(herbac_mean_height_cm) ~ 1,
+                                               is.na(shrub_mean_height_cm) & is.na(herbac_mean_height_cm) ~ NA)) %>% 
+  mutate(shrub_herbac_height_ratio = round(shrub_herbac_height_ratio, digits = 2))
 
 # QA/QC
-summary(indicators$shrub_herbaceous_height_ratio) # 1 missing site; ratio bounded by 0 and 1
+summary(indicators$shrub_herbac_height_ratio) # 1 missing site; ratio bounded by 0 and 1
 
 #### CALCULATE SOIL INDICATORS
 ####------------------------------
@@ -268,7 +270,7 @@ summary(indicators$organic_mineral_ratio_30_cm) # 4 sites with missing values; r
 # So that the shrub/herbaceous heights columns are all together
 indicators = indicators %>% 
   select(site_visit_code, organic_mineral_ratio_30_cm, organic_depth_cm,
-         soil_pH,shrub_herbaceous_height_ratio,everything())
+         soil_pH,shrub_herbac_height_ratio,everything())
 
 #### CALCULATE VEGETATION INDICATORS
 ####------------------------------
@@ -756,12 +758,61 @@ indicators = vegetation_data %>%
   summarize(species_richness = n()) %>%
   right_join(indicators, by = 'site_visit_code')
 
+# Join strata table
+output_data = strata_data %>%
+  left_join(indicators, by = 'site_visit_code') %>%
+  mutate(shrub_cover_percent = case_when(is.na(shrub_cover_percent) ~ 0,
+                                         TRUE ~ shrub_cover_percent)) %>%
+  mutate(herbac_cover_percent = case_when(is.na(herbac_cover_percent) ~ 0,
+                                          TRUE ~ herbac_cover_percent)) %>%
+  mutate(organic_depth_cm = case_when(is.na(organic_depth_cm)
+                                      & (stratum_code == 'AB' | stratum_code == 'ADST' | stratum_code == 'AFS'
+                                         | stratum_code == 'CPID') ~ 0,
+                                      TRUE ~ organic_depth_cm)) %>%
+  mutate(depth_moss_duff_cm = case_when(site_visit_code == 'AFPD-31_20130730' ~ 5,
+                                        site_visit_code == 'CPBWM-26_20130731' ~ 0,
+                                        site_visit_code == 'CPBWM-31_20130725' ~ 0,
+                                        site_visit_code == 'CPBWM-51_20140726' ~ 0,
+                                        site_visit_code == 'CPBWM-52_20140721' ~ 0,
+                                        site_visit_code == 'FWMM-24_20130728' ~ 0,
+                                        site_visit_code == 'FWMM-59_20140722' ~ 0,
+                                        site_visit_code == 'FWMM-80_20170728' ~ 0,
+                                        site_visit_code == 'GMT2-052_20190805' ~ 0,
+                                        site_visit_code == 'GMT2-090_20190809' ~ 0,
+                                        site_visit_code == 'GMT2-096_20190801' ~ 0,
+                                        site_visit_code == 'GMT2-131_20190806' ~ 0,
+                                        site_visit_code == 'GMT2-136_20190808' ~ 0,
+                                        site_visit_code == 'SSBWM-53_20140728' ~ 0,
+                                        site_visit_code == 'SSBWM-54_20140724' ~ 0,
+                                        site_visit_code == 'TMCW-55B_20140725' ~ 0,
+                                        TRUE ~ depth_moss_duff_cm))
+
+#### CREATE LONG FORM DATA
+####------------------------------
+
+longform_data = output_data %>%
+  mutate(depth_active_layer_cm = case_when(is.na(depth_active_layer_cm) ~ 200,
+                                           TRUE ~ depth_active_layer_cm)) %>%
+  mutate(shrub_mean_height_cm = case_when(is.na(shrub_mean_height_cm) ~ 0,
+                                          TRUE ~ shrub_mean_height_cm)) %>%
+  mutate(shrub_max_height_cm = case_when(is.na(shrub_max_height_cm) ~ 0,
+                                         TRUE ~ shrub_max_height_cm)) %>%
+  mutate(herbac_mean_height_cm = case_when(is.na(herbac_mean_height_cm) ~ 0,
+                                           TRUE ~ herbac_mean_height_cm)) %>%
+  mutate(herbac_max_height_cm = case_when(is.na(herbac_max_height_cm) ~ 0,
+                                          TRUE ~ herbac_max_height_cm)) %>%
+  mutate(shrub_herbac_height_ratio = case_when(is.na(shrub_herbac_height_ratio) ~ 0,
+                                               TRUE ~ shrub_herbac_height_ratio)) %>%
+  select(-site_code, -stratum_code, -stratum_name, -physiography, -plot_category,) %>%
+  pivot_longer(!site_visit_code, names_to = 'indicator', values_to = 'value') %>%
+  left_join(strata_data, by = 'site_visit_code') %>%
+  left_join(site_visit_data, by = 'site_visit_code') %>%
+  select(site_code, site_visit_code, stratum_code, stratum_name, physiography, plot_category,
+         latitude_dd, longitude_dd, indicator, value)
+
 #### EXPORT DATA
 ####------------------------------
 
-# Join strata table
-output_data = strata_data %>%
-  left_join(indicators, by = 'site_visit_code')
-
 # Export strata table
 write.csv(output_data, file = indicators_output, fileEncoding = 'UTF-8', row.names = FALSE)
+write.csv(longform_data, file = longform_output, fileEncoding = 'UTF-8', row.names = FALSE)

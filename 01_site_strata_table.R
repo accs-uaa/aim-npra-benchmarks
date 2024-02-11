@@ -51,7 +51,11 @@ site_visit_data = as_tibble(dbGetQuery(database_connection, site_visit_query))
 metadata_data = read_xlsx(metadata_input, sheet='import_site_v_veg_metrics') %>%
   select(site_code, Stratum_Lump, Analysis_Cat) %>%
   rename(physiography = Stratum_Lump,
-         plot_category = Analysis_Cat)
+         plot_category = Analysis_Cat) %>%
+  mutate(plot_category = case_when(plot_category == 'Homogenous' ~ 'homogeneous',
+                                   plot_category == 'Heterogenous' ~ 'heterogeneous',
+                                   TRUE ~ plot_category)) %>%
+  mutate(plot_category = str_to_lower(plot_category))
 
 # Join strata tables
 strata_data = read_csv(strata_input) %>%
