@@ -23,16 +23,16 @@ data_folder = os.path.join(drive, root_folder,
                            'Projects/VegetationEcology/BLM_AIM_NPRA_Benchmarks/Data/Data_Output')
 
 # Define input file
-strata_input = os.path.join(data_folder, 'strata/AIM_NPRA_Strata.csv')
+photo_input = os.path.join(data_folder, 'AIM_NPRA_Photo_List.csv')
 
 # Read input data
-strata_data = pd.read_csv(strata_input)
-visit_list = strata_data['site_code'].unique()
+photo_data = pd.read_csv(photo_input)
+site_list = photo_data['folder_name'].unique()
 
 # Loop through all sites and create html output
-for visit_code in visit_list:
+for image_folder in site_list:
     # Define output files
-    output_html = os.path.join(data_folder, 'html', f'{visit_code}.html')
+    output_html = os.path.join(data_folder, 'html', f'{image_folder}.html')
 
     # Delete html file if it already exists
     if os.path.exists(output_html) == 1:
@@ -42,23 +42,24 @@ for visit_code in visit_list:
     f = open(output_html, 'w')
 
     # Create the html code
-    html_string = f'''<html> 
-    <head> 
-    <title>Site Visit Photos for {visit_code}</title> 
+    html_string = f'''<!DOCTYPE html>
+    <html> 
+    <head>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto">
+    <title>Site Visit Photos for {image_folder}</title> 
     </head> 
     <body>
-    <h1 style="text-align:center;">Site Visit Photos for {visit_code}</h1>
-    <br>'''
-
-    # List all photos in directory
-    photo_list = ['AB1B_t2a.jpg', 'AB1B_t2b.jpg']
+    <h1 style="text-align:center;font-family:'Roboto',sans-serif;font-weight:lighter;">Site Visit Photos for {image_folder}</h1>
+    <div id="container" style="display:flex;flex-direction:row;flex-wrap:wrap;justify-content:center;width:90%;margin:auto;">'''
 
     # Add each photo thumbnail to html
+    photo_list = photo_data['image_name'].loc[photo_data['folder_name'] == image_folder].unique()
     for photo_file in photo_list:
-        html_addition = f'''<a href="{url_root + visit_code + '/' + photo_file}", style="margin:10px";><img src="{url_root + visit_code + '/' + photo_file}" style="width:200px;"></a>'''
+        html_addition = f'''\t<a href="{url_root + image_folder + '/' + photo_file}", style="display:inline-block;margin:10px;";><img src="{url_root + image_folder + '/' + photo_file}" style="width:300px;height:225px;object-fit:cover;object-position:25%25%;"></a>\n'''
         html_string = html_string + html_addition
 
-    html_string = html_string + '''\n</body> 
+    html_string = html_string + '''\n</div>
+    </body> 
     </html>'''
 
     # writing the code into the file

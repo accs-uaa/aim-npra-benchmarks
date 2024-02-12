@@ -23,8 +23,8 @@ library(tibble)
 library(tidyr)
 
 # Set root directory
-drive = 'D:'
-root_folder = 'ACCS_Work/Projects/VegetationEcology/BLM_AIM_NPRA_Benchmarks'
+drive = '/srv'
+root_folder = 'shiny-server'
 
 # Define input folders
 app_folder = paste(drive,
@@ -49,18 +49,31 @@ summary_data = read_csv(summary_input) %>%
                            indicator == 'soil_pH' ~ value * 10,
                            TRUE ~ value)) %>%
   mutate(indicator = case_when(indicator == 'depth_moss_duff_cm' ~ 'depth_moss_duff_mm',
-                               TRUE ~ indicator))
+                               TRUE ~ indicator)) %>%
+  left_join(list_data, by = 'indicator')
 comparison_types = as.list(c('among groups', 'among indicators', 'single indicator/group'))
 height_types = as.list(c('mean', 'max'))
 
-# Add directory of static resources to Shiny's web server
-#addResourcePath(prefix = 'image_source', directoryPath = paste(app_folder, 'data', sep = '/'))
+# Process static data
+species_list = list_data %>%
+  filter(type == 'species cover') %>%
+  distinct(short_display)
+species_list = list_c(as.vector(species_list))
+vascular_list = list_data %>%
+  filter(type == 'vascular cover') %>%
+  distinct(short_display)
+vascular_list = list_c(as.vector(vascular_list))
+strata_legend = summary_data %>%
+  distinct(stratum_code, stratum_name, physiography)
+strata_data = summary_data %>%
+  distinct(stratum_code, stratum_name)
 
 # Write introduction text
 instructions_p1 = 'The sidebar menu provides a set of controls to guide the data exploration. On mobile devices, the sidebar menu will appear at the top of the page, rather than on the side of the page. To get started, select the type of data visualization that you would like to explore. You can select multiple options.'
 introduction_p1 = 'In 2011, a pilot project was initiated to adapt AIM to an arctic environment. As part of this pilot, 12 strata were conceptualized, mapped, and sampled following AIM protocols. The strata were defined to capture the variation in biophysical characteristics and site potential across the Arctic Coastal Plain and Brooks Range Foothills. Between 2012 and 2022, 261 plots were sampled within these strata.'
 introduction_p2 = 'For each strata, we identified indicator species and indicators of change that can be used to monitor environmental change relative to a reference condition. The following web application is designed to help land managers and BLM staff visually explore these indicators.'
 credits = 'Application Design: T.W. Nawrocki, A. Droghini, and L.A. Flagstad; Alaska Center for Conservation Science, University of Alaska Anchorage'
+map_instructions = 'Clicking the points within the map will display a link to the photos for that site.'
 
 #### DEFINE UI PROCESSING
 ####------------------------------
@@ -75,10 +88,10 @@ ui = fluidPage(theme = shinytheme('lumen'),
                
                # App title
                tags$div(id = 'header',
-                tags$a(href="https://accs.uaa.alaska.edu",
-                        tags$img(src='alaska-center-conservation-science.png', id='logo')),
-                tags$h1('Indicator Explorer for AIM NPR-A'),
-                tags$br()
+                        tags$a(href="https://accs.uaa.alaska.edu",
+                               tags$img(src='alaska-center-conservation-science.png', id='logo')),
+                        tags$h1('Indicator Explorer for AIM NPR-A'),
+                        tags$br()
                ),
                
                # Sidebar layout
@@ -125,6 +138,7 @@ ui = fluidPage(theme = shinytheme('lumen'),
                    ),
                    tags$div(id='map_section',
                             tags$h2('Selected Sites'),
+                            tags$p(map_instructions),
                             leafletOutput('site_map'),
                             tags$br(),
                             tags$br(),
@@ -160,23 +174,6 @@ ui = fluidPage(theme = shinytheme('lumen'),
 ####------------------------------
 
 server = function(input, output, session) {
-  
-  #### Process static elements
-  ####------------------------------
-  
-  # Process static data
-  species_list = list_data %>%
-    filter(type == 'species cover') %>%
-    distinct(short_display)
-  species_list = list_c(as.vector(species_list))
-  vascular_list = list_data %>%
-    filter(type == 'vascular cover') %>%
-    distinct(short_display)
-  vascular_list = list_c(as.vector(vascular_list))
-  strata_legend = summary_data %>%
-    distinct(stratum_code, stratum_name, physiography)
-  strata_data = summary_data %>%
-    distinct(stratum_code, stratum_name)
   
   #### CREATE REACTIVE UI
   ####------------------------------
@@ -312,8 +309,7 @@ server = function(input, output, session) {
              else physiography %in% group_filter()) %>%
       filter(if (input$homogeneous == TRUE) plot_category == 'homogeneous'
              else plot_category %in% c('homogeneous', 'heterogeneous')) %>%
-      drop_na() %>%
-      left_join(list_data, by = 'indicator')
+      drop_na()
     if (input$grouping == 'stratum') {
       summary_reactive = summary_reactive %>%
         mutate(groups = stratum_code)
@@ -328,7 +324,6 @@ server = function(input, output, session) {
   # Create reactive output data
   output_reactive = reactive({
     output_reactive = summary_reactive() %>%
-      left_join(list_data, by = 'indicator') %>%
       select(site_code, groups, display, value) %>%
       rename(indicator = display)
     if (input$grouping == 'stratum') {
@@ -464,14 +459,15 @@ server = function(input, output, session) {
   # Render map
   output$site_map = renderLeaflet({
     site_filtered = summary_reactive() %>%
-      distinct(site_code, latitude_dd, longitude_dd)
+      distinct(site_code, latitude_dd, longitude_dd) %>%
+      mutate(photos = paste('<a href="https://accs.uaa.alaska.edu/files/photo-index/', site_code, '.html" target="_blank">', site_code, '</a>', sep = ''))
     m = leaflet(site_filtered) %>%
       addTiles() %>%
       addWMSTiles(
         "https://geoportal.alaska.gov/arcgis/services/ahri_2020_rgb_cache/MapServer/WMSServer",
         layers = 1,
         options = WMSTileOptions(format = "image/png", transparent = FALSE)) %>%
-      addCircleMarkers(lng = ~longitude_dd, lat = ~latitude_dd, radius = 1, popup = ~site_code, color = 'red')
+      addCircleMarkers(lng = ~longitude_dd, lat = ~latitude_dd, radius = 1, popup = ~photos, color = 'red')
     m})
   
   observe({

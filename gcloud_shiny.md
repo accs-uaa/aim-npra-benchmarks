@@ -184,7 +184,7 @@ sudo su - -c "R -e \"install.packages('leaflet', repos='http://cran.rstudio.com/
 sudo su - -c "R -e \"install.packages('plotly', repos='http://cran.rstudio.com/')\""
 sudo su - -c "R -e \"install.packages('shinythemes', repos='http://cran.rstudio.com/')\""
 sudo su - -c "R -e \"install.packages('shinyjs', repos='http://cran.rstudio.com/')\""
-sudo su - -c "R -e \"install.packages('shinywidgets', repos='http://cran.rstudio.com/')\""
+sudo su - -c "R -e \"install.packages('shinyWidgets', repos='http://cran.rstudio.com/')\""
 ```
 
 Install latest R Studio Server. The version may need to be updated from below.
@@ -236,7 +236,7 @@ When transferring files after transferring ownership, 'sudo' must precede the 'g
 
 ### Set permissions for Shiny user:
 
-Shiny apps are executed by a user called "shiny" in the directory "/srv/shiny-server". The permissions for the shiny server folder need to be enabled for all users.
+Shiny apps are executed by a user called "shiny" in the directory "/srv/shiny-server". The permissions for the shiny server folder need to be enabled for all users. After creating new files or folders in the shiny-server directory, this command should be re-run.
 
 ```         
 sudo chmod -R a+rwx /srv/shiny-server/
