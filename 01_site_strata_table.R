@@ -61,7 +61,11 @@ metadata_data = read_xlsx(metadata_input, sheet='import_site_v_veg_metrics') %>%
 strata_data = read_csv(strata_input) %>%
   left_join(metadata_data, by = 'site_code') %>%
   left_join(site_visit_data, by = 'site_code') %>%
-  select(site_code, site_visit_code, stratum_name, stratum_code, physiography, plot_category)
+  select(site_code, site_visit_code, stratum_name, stratum_code, physiography, plot_category) %>%
+  mutate(stratum_name = case_when(stratum_name == 'Arctic Floodplain Poorly Drained' ~ 'Arctic Floodplain Wetland',
+                                  TRUE ~ stratum_name)) %>%
+  mutate(stratum_code = case_when(stratum_code == 'AFPD' ~ 'AFW',
+                                  TRUE ~ stratum_code))
 
 # Export strata table
 write.csv(strata_data, file = strata_output, fileEncoding = 'UTF-8', row.names = FALSE)

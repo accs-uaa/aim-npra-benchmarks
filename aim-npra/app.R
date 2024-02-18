@@ -13,6 +13,7 @@ library(dplyr)
 library(leaflet)
 library(plotly)
 library(purrr)
+library(RColorBrewer)
 library(readr)
 library(stringr)
 library(shiny)
@@ -45,6 +46,7 @@ summary_data = read_csv(summary_input) %>%
   # Rescale summary data
   mutate(value = case_when(indicator == 'organic_mineral_ratio_30_cm' ~ round(value * 100, 0),
                            indicator == 'shrub_herbac_height_ratio' ~ round(value * 100, 0),
+                           indicator == 'tussock_wetsed_ratio' ~ round(value * 100, 0),
                            indicator == 'depth_moss_duff_cm' ~ value * 10,
                            indicator == 'soil_pH' ~ value * 10,
                            TRUE ~ value)) %>%
@@ -64,16 +66,19 @@ vascular_list = list_data %>%
   distinct(short_display)
 vascular_list = list_c(as.vector(vascular_list))
 strata_legend = summary_data %>%
-  distinct(stratum_code, stratum_name, physiography)
+  distinct(stratum_code, stratum_name, physiography) %>%
+  mutate(stratum_name = paste('<a href="https://accs.uaa.alaska.edu/files/aim-strata/',
+                              stratum_code, '.pdf" target="_blank">', stratum_name, '</a>', sep = ''))
 strata_data = summary_data %>%
   distinct(stratum_code, stratum_name)
 
 # Write introduction text
-instructions_p1 = 'The sidebar menu provides a set of controls to guide the data exploration. On mobile devices, the sidebar menu will appear at the top of the page, rather than on the side of the page. To get started, select the type of data visualization that you would like to explore. You can select multiple options.'
-introduction_p1 = 'In 2011, a pilot project was initiated to adapt AIM to an arctic environment. As part of this pilot, 12 strata were conceptualized, mapped, and sampled following AIM protocols. The strata were defined to capture the variation in biophysical characteristics and site potential across the Arctic Coastal Plain and Brooks Range Foothills. Between 2012 and 2022, 261 plots were sampled within these strata.'
-introduction_p2 = 'For each strata, we identified indicator species and indicators of change that can be used to monitor environmental change relative to a reference condition. The following web application is designed to help land managers and BLM staff visually explore these indicators.'
+instructions_p1 = 'The sidebar menu provides a set of controls to guide the data exploration. On mobile devices, the sidebar menu will appear at the top of the page: scroll down past the controls to view the outputs. To get started, select the type of data visualization that you would like to explore, then select the output types that you would like to view (e.g., "plots"). You can alternate between multiple types of comparison plots. Note that not all sites will have informative data for all indicators. For example, the "Alpine" physiography will show an empty plot for the "tall shrub %" indicator because tall shrubs do not generally occur in the Alpine within NPR-A. This application links to site photographs through the "data" and "map" views. Click the links in the data table or associated with points in the map to see photos from a particular site. Click the links in the stratum legend to see summary documents for each stratum. The "reset" button at the bottom of the page will return all inputs to their initial defaults.'
+introduction_p1 = 'The Bureau of Land Management (BLM) uses the Assessment, Inventory, and Monitoring (AIM) program as a standardized monitoring strategy for assessing the condition and trend of natural resources on BLM-managed lands. In 2011, a pilot project was initiated in the National Petroleum Reserve–Alaska (NPR-A) to adapt the AIM strategy to an arctic environment. As part of this project, twelve strata were defined to capture the range of natural variation in biophysical characteristics and site potential across the Arctic Coastal Plain and Brooks Range Foothills. Subsequently, a random stratified selection of sites were sampled across the strata following AIM protocols. Data on indicators, such as vegetation composition, height, and percent cover of bare ground and surface water, among others, were collected from 261 plots from 2012 to 2022. This web application is designed to help land managers visually explore indicators at different scales (physiographic, stratum, plot). Indicators deemed informative to ecological integrity and function can be used to set benchmarks for each stratum that, when exceeded, signal a potential need to initiate a management action. This framework allows land managers to make data-driven decisions to meet management objectives.'
 credits = 'Application Design: T.W. Nawrocki, A. Droghini, and L.A. Flagstad; Alaska Center for Conservation Science, University of Alaska Anchorage'
+legend_instructions = 'Clicking the hyperlinked stratum name will display a summary document for that stratum.'
 map_instructions = 'Clicking the points within the map will display a link to the photos for that site.'
+data_instructions = 'Clicking the hyperlinked text of each site code will display the photos for that site. The data records presented below are spread across multiple pages. Use the page tabs below to browse through the data records or use the search function to narrow the results further.'
 
 #### DEFINE UI PROCESSING
 ####------------------------------
@@ -112,18 +117,18 @@ ui = fluidPage(theme = shinytheme('lumen'),
                    uiOutput('height_type'),
                    uiOutput('vascular'),
                    uiOutput('species'),
+                   actionButton('opt_reset', 'Reset Inputs'),
                    tags$br()
                  ),
                  
                  # Main panel for displaying outputs
                  mainPanel(
-                   tags$img(src='explorer_banner.jpg', id = 'banner'),
                    tags$div(id='introduction',
+                            tags$img(src='explorer_banner.jpg', id = 'banner'),
+                            tags$h2('Introduction'),
+                            tags$p(introduction_p1),
                             tags$h2('Instructions'),
                             tags$p(instructions_p1),
-                            tags$h2('About the Project'),
-                            tags$p(introduction_p1),
-                            tags$p(introduction_p2),
                             tags$b(credits),
                             tags$br(),
                             tags$br(),
@@ -146,6 +151,7 @@ ui = fluidPage(theme = shinytheme('lumen'),
                    ),
                    tags$div(id='data_section',
                             tags$h2('Indicator Value Table'),
+                            tags$p(data_instructions),
                             dataTableOutput('data_table'),
                             tags$br(),
                             tags$br(),
@@ -160,6 +166,7 @@ ui = fluidPage(theme = shinytheme('lumen'),
                    ),
                    tags$div(id='legend_section',
                             tags$h2('Stratum Abbreviations'),
+                            tags$p(legend_instructions),
                             dataTableOutput('stratum_legend'),
                             tags$br(),
                             tags$br(),
@@ -180,13 +187,18 @@ server = function(input, output, session) {
   
   # Create dynamic indicator list
   indicator_list = reactive({
-    filter(list_data, type == input$indicator_type)
+    indicator_list = list_data %>%
+      filter(type == input$indicator_type) %>%
+      mutate(display = case_when(display == 'pH (x 10)' ~ 'pH',
+                                 TRUE ~ display)) %>%
+      distinct(display)
+    indicator_list
   })
   
   # Render dynamic UI
   output$indicator = renderUI({
     if (input$comparison_type != 'among indicators') {
-      indicator_choices = distinct(indicator_list(), display)
+      indicator_choices = indicator_list()
       selectInput('indicator', 'Indicator', choices = indicator_choices)
     }
   })
@@ -233,8 +245,13 @@ server = function(input, output, session) {
       indicator_filter = list_c(as.vector(indicator_filter))
     } else {
       req(input$indicator)
+      if (input$indicator == 'pH') {
+        indicator_value = 'pH (x 10)'
+      } else {
+        indicator_value = input$indicator
+      }
       indicator_filter = list_data %>%
-        filter(display == input$indicator) %>%
+        filter(display == indicator_value) %>%
         distinct(indicator)
       indicator_filter = list_c(as.vector(indicator_filter))
     }
@@ -242,9 +259,9 @@ server = function(input, output, session) {
     if (input$indicator_type == 'shrub-herbaceous') {
       req(input$height_type)
       if(input$height_type == 'max') {
-        height_remove = c('shrub_mean_height_cm', 'herbaceous_mean_height_cm')
+        height_remove = c('shrub_mean_height_cm', 'herbac_mean_height_cm')
       } else {
-        height_remove = c('shrub_max_height_cm', 'herbaceous_max_height_cm')
+        height_remove = c('shrub_max_height_cm', 'herbac_max_height_cm')
       }
       indicator_filter = indicator_filter[!indicator_filter %in% height_remove]
     }
@@ -324,16 +341,12 @@ server = function(input, output, session) {
   # Create reactive output data
   output_reactive = reactive({
     output_reactive = summary_reactive() %>%
-      select(site_code, groups, display, value) %>%
-      rename(indicator = display)
-    if (input$grouping == 'stratum') {
-      output_reactive = output_reactive %>%
-        left_join(strata_data, by = c('groups' = 'stratum_code')) %>%
-        select(site_code, stratum_name, indicator, value)
-    } else {
-      output_reactive = output_reactive %>%
-        rename(physiography = groups)
-    }
+      select(site_code, stratum_name, physiography, display, value) %>%
+      rename(indicator = display) %>%
+      mutate(value = case_when(indicator == 'pH (x 10)' ~ value/10,
+                               TRUE ~ value)) %>%
+      mutate(indicator = case_when(indicator == 'pH (x 10)' ~ 'pH',
+                                   TRUE ~ indicator))
     # Return dataframe
     output_reactive
   })
@@ -344,21 +357,25 @@ server = function(input, output, session) {
   # Create reactive output plot for group comparison
   plot_reactive = reactive({
     if (input$comparison_type == 'among groups') {
+      req(input$indicator)
+      if (input$indicator == 'pH') {
+        indicator_value = 'pH (x 10)'
+      } else {
+        indicator_value = input$indicator
+      }
+      palette = colorRampPalette(brewer.pal(11, name = 'BrBG'))(length(unique(summary_reactive()$groups)))
       plot_reactive = summary_reactive() %>%
         plot_ly(y = ~value,
                 color = ~groups,
-                colors = 'BrBG',
+                colors = palette,
                 type = 'box',
-                points = "all", 
-                jitter = 0.3,
-                pointpos = 0,
-                marker = list (color = 'black', size = 12), 
-                line = list (color = 'black'),
+                marker = list(color = 'black', size = 12), 
+                line = list(color = 'black'),
                 hoverinfo = 'text',
                 text = ~paste('</br> site code: ', site_code,
                               '</br> Indicator Value: ', value)
         ) %>%
-        layout( yaxis = list(title = str_replace_all(input$indicator, '_', ' '))) %>%
+        layout( yaxis = list(title = str_replace_all(indicator_value, '_', ' '))) %>%
         layout( yaxis = list(titlefont = list(size = 22), tickfont = list(size = 22))) %>%
         layout( xaxis = list(zerolinecolor = '#ffff',
                              zerolinewidth = 2,
@@ -366,14 +383,12 @@ server = function(input, output, session) {
                              showticklabels=TRUE)) %>%
         layout(showlegend = FALSE)
     } else if (input$comparison_type == 'among indicators') {
+      palette = colorRampPalette(brewer.pal(11, name = 'BrBG'))(length(unique(summary_reactive()$indicator)))
       plot_reactive = summary_reactive() %>%
         plot_ly(y = ~value,
                 color = ~short_display,
-                colors = 'BrBG',
-                type = 'box',
-                points = "all", 
-                jitter = 0.3,
-                pointpos = 0,
+                colors = palette,
+                type = 'box', 
                 marker = list (color = 'black', size = 12), 
                 line = list (color = 'black'),
                 hoverinfo = 'text',
@@ -387,6 +402,12 @@ server = function(input, output, session) {
                              showticklabels=TRUE)) %>%
         layout(showlegend = FALSE)
     } else {
+      req(input$indicator)
+      if (input$indicator == 'pH') {
+        indicator_value = 'pH (x 10)'
+      } else {
+        indicator_value = input$indicator
+      }
       plot_reactive = summary_reactive() %>%
         plot_ly(y = ~value,
                 type = 'violin',
@@ -403,7 +424,7 @@ server = function(input, output, session) {
                 text = ~paste('</br> site code: ', site_code,
                               '</br> Indicator Value: ', value)
         ) %>%
-        layout( yaxis = list(title = str_replace_all(input$indicator, '_', ' '))) %>%
+        layout( yaxis = list(title = str_replace_all(indicator_value, '_', ' '))) %>%
         layout( yaxis = list(titlefont = list(size = 22), tickfont = list(size = 22))) %>%
         layout( xaxis = list(zerolinecolor = '#ffff',
                              zerolinewidth = 2,
@@ -417,7 +438,7 @@ server = function(input, output, session) {
   
   # Render legend
   output$stratum_legend = renderDataTable({
-    datatable(strata_legend, options = list(dom = 't', pageLength = 1000), rownames=FALSE)
+    datatable(strata_legend, options = list(dom = 't', pageLength = 1000), escape=FALSE, rownames=FALSE)
   })
   
   # Render plot
@@ -427,7 +448,14 @@ server = function(input, output, session) {
   
   # Render data
   output$data_table = renderDataTable({
-    datatable(output_reactive(), options = list(pageLength = 8), rownames=FALSE)
+    output_data = output_reactive() %>%
+      mutate(site_code = paste('<a href="https://accs.uaa.alaska.edu/files/photo-index/',
+                               site_code,
+                               '.html" target="_blank">',
+                               site_code,
+                               '</a>',
+                               sep = ''))
+    datatable(output_data, options = list(pageLength = 8), escape=FALSE, rownames=FALSE)
   })
   
   # Render summary
@@ -470,6 +498,7 @@ server = function(input, output, session) {
       addCircleMarkers(lng = ~longitude_dd, lat = ~latitude_dd, radius = 1, popup = ~photos, color = 'red')
     m})
   
+  # Add toggle behavior
   observe({
     toggle(id='plot_section', condition = 'plot' %in% input$output_toggle)
     toggle(id='indicator_plot', condition = 'plot' %in% input$output_toggle)
@@ -479,10 +508,14 @@ server = function(input, output, session) {
     toggle(id='data_table', condition = 'data' %in% input$output_toggle)
     toggle(id='summary_section', condition = 'summary' %in% input$output_toggle)
     toggle(id='summary_table', condition = 'summary' %in% input$output_toggle)
-    toggle(id='banner', condition = is.null(input$output_toggle))
     toggle(id='introduction', condition = is.null(input$output_toggle))
     toggle(id='legend_section', condition = input$legend == TRUE)
     toggle(id='stratum_legend', condition = input$legend == TRUE)
+  })
+  
+  # Add reset behavior
+  observeEvent(input$opt_reset,{
+    reset('')
   })
 }
 

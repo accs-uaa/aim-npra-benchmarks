@@ -425,6 +425,40 @@ indicators = vegetation_data %>%
   mutate(salix_cover_percent = case_when(is.na(salix_cover_percent) ~ 0,
                                           TRUE ~ salix_cover_percent))
 
+# Calculate low Salix
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((taxon_genus == 'Salix' & taxon_habit == 'shrub' & name_accepted != 'Salix alaxensis')
+         & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(lowsal_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(lowsal_cover_percent = case_when(is.na(lowsal_cover_percent) ~ 0,
+                                               TRUE ~ lowsal_cover_percent))
+
+# Calculate dwarf Salix
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((taxon_genus == 'Salix' & (taxon_habit == 'dwarf shrub' | taxon_habit == 'dwarf shrub, shrub'))
+         & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(dwasal_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(dwasal_cover_percent = case_when(is.na(dwasal_cover_percent) ~ 0,
+                                                     TRUE ~ dwasal_cover_percent))
+
+# Calculate dwarf Salix plus Dryas
+indicators = vegetation_data %>%
+  left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
+  filter((taxon_genus == 'Dryas' |
+            (taxon_genus == 'Salix' & (taxon_habit == 'dwarf shrub' | taxon_habit == 'dwarf shrub, shrub')))
+         & dead_status == 'FALSE') %>%
+  group_by(site_visit_code) %>%
+  summarize(dwasal_dryas_cover_percent = sum(cover_percent)) %>%
+  right_join(indicators, by = 'site_visit_code') %>%
+  mutate(dwasal_dryas_cover_percent = case_when(is.na(dwasal_dryas_cover_percent) ~ 0,
+                                         TRUE ~ dwasal_dryas_cover_percent))
+
 # Calculate shrub cover
 indicators = vegetation_data %>%
   left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
@@ -515,6 +549,12 @@ indicators = vegetation_data %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(talshr_cover_percent = case_when(is.na(talshr_cover_percent) ~ 0,
                                           TRUE ~ talshr_cover_percent))
+
+# Calculate tussock:wetland sedge ratio
+indicators = indicators %>%
+  mutate(tussock_wetsed_ratio =
+           tussock_cover_percent / (tussock_cover_percent + wetsed_cover_percent + 0.001)) %>%
+  mutate(tussock_wetsed_ratio = round(tussock_wetsed_ratio, 2))
 
 # Calculate Eriophorum vaginatum cover
 indicators = vegetation_data %>%
