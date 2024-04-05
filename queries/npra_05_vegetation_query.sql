@@ -13,6 +13,7 @@ SELECT vegetation_cover.vegetation_cover_id as vegetation_cover_id
 	 , site_visit.project_code as project_code
      , cover_type.cover_type as cover_type
      , taxon_accepted.taxon_name as name_accepted
+     , taxon_accepted.taxon_code as code_accepted
      , vegetation_cover.dead_status as dead_status
      , vegetation_cover.cover_percent as cover_percent
 FROM vegetation_cover
