@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # Data visualization for NPR-A AIM indicators
 # Author: Timm Nawrocki, Amanda Droghini, Alaska Center for Conservation Science
-# Last Updated: 2024-02-11
+# Last Updated: 2024-08-20
 # Usage: Code chunks must be executed sequentially in R Studio or R Studio Server installation.
 # Description: "Data visualization for indicator comparison" specifies a shiny app to visualize indicator and strata relationships.
 # ---------------------------------------------------------------------------
@@ -54,7 +54,6 @@ summary_data = read_csv(summary_input) %>%
                                TRUE ~ indicator)) %>%
   left_join(list_data, by = 'indicator')
 comparison_types = as.list(c('among groups', 'among indicators', 'single indicator/group'))
-height_types = as.list(c('mean', 'max'))
 
 # Process static data
 species_list = list_data %>%
@@ -114,7 +113,6 @@ ui = fluidPage(theme = shinytheme('lumen'),
                    uiOutput('physiography'),
                    selectInput('indicator_type', 'Indicator Type', choices = unique(list_data$type)),
                    uiOutput('indicator'),
-                   uiOutput('height_type'),
                    uiOutput('vascular'),
                    uiOutput('species'),
                    actionButton('opt_reset', 'Reset Inputs'),
@@ -214,11 +212,6 @@ server = function(input, output, session) {
       selectInput('physiography', 'Physiography', choices = physiography_choices)
     }
   })
-  output$height_type = renderUI({
-    if (input$comparison_type == 'among indicators' & input$indicator_type == 'shrub-herbaceous') {
-      selectInput('height_type', 'Height Type', choices = height_types)
-    }
-  })
   output$vascular = renderUI({
     if (input$comparison_type == 'among indicators' & input$indicator_type == 'vascular cover') {
       pickerInput('vascular', 'Select groups (max 6)', choices = vascular_list,
@@ -254,16 +247,6 @@ server = function(input, output, session) {
         filter(display == indicator_value) %>%
         distinct(indicator)
       indicator_filter = list_c(as.vector(indicator_filter))
-    }
-    # Select height type
-    if (input$indicator_type == 'shrub-herbaceous') {
-      req(input$height_type)
-      if(input$height_type == 'max') {
-        height_remove = c('shrub_mean_height_cm', 'herbac_mean_height_cm')
-      } else {
-        height_remove = c('shrub_max_height_cm', 'herbac_max_height_cm')
-      }
-      indicator_filter = indicator_filter[!indicator_filter %in% height_remove]
     }
     # Overwrite indicator filter for species cover for the among indicators comparison
     if (input$comparison_type == 'among indicators' & input$indicator_type == 'species cover') {
@@ -495,7 +478,7 @@ server = function(input, output, session) {
         "https://geoportal.alaska.gov/arcgis/services/ahri_2020_rgb_cache/MapServer/WMSServer",
         layers = 1,
         options = WMSTileOptions(format = "image/png", transparent = FALSE)) %>%
-      addCircleMarkers(lng = ~longitude_dd, lat = ~latitude_dd, radius = 1, popup = ~photos, color = 'red')
+      addCircleMarkers(lng = ~longitude_dd, lat = ~latitude_dd, radius = 1, popup = ~photos, color = 'red', label = ~site_code)
     m})
   
   # Add toggle behavior
