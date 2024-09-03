@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # Data visualization for NPR-A AIM indicators
 # Author: Timm Nawrocki, Amanda Droghini, Alaska Center for Conservation Science
-# Last Updated: 2024-08-20
+# Last Updated: 2024-09-03
 # Usage: Code chunks must be executed sequentially in R Studio or R Studio Server installation.
 # Description: "Data visualization for indicator comparison" specifies a shiny app to visualize indicator and strata relationships.
 # ---------------------------------------------------------------------------

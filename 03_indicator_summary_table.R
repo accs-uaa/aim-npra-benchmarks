@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # Summarize AIM indicators
 # Author: Amanda Droghini, Timm Nawrocki, Alaska Center for Conservation Science
-# Last Updated: 2024-08-20
+# Last Updated: 2024-09-03
 # Usage: Script should be executed in R 4.4.1+.
 # Description: "Summarize AIM indicators" creates an indicator summary table from the AKVEG Database.
 # ---------------------------------------------------------------------------
@@ -126,11 +126,23 @@ indicators = abiotic_data %>%
   right_join(indicators,by="site_visit_code") %>% 
   arrange(site_visit_code)
 
-# Calculate surface_water_depth_cm (drop -999 and positive (+) values; make negative values positive)
+# Calculate depth_groundwater_cm (drop -999 and positive (+) values; make negative values positive)
 indicators = environment_data %>% 
   group_by(site_visit_code) %>% 
-  filter(depth_water_cm != -999 & depth_water_cm <= 0) %>% 
-  mutate(surface_water_depth_cm = depth_water_cm * -1) %>% 
+  filter(depth_water_cm != -999 & depth_water_cm < 0) %>% 
+  mutate(depth_groundwater_cm = depth_water_cm * -1) %>% 
+  select(site_visit_code, depth_groundwater_cm) %>% 
+  right_join(indicators,by="site_visit_code") %>% 
+  arrange(site_visit_code)
+
+# QA/QC: All groundwater values are positive
+summary(indicators$depth_groundwater_cm)
+
+# Calculate surface_water_depth_cm (drop -999 and negative (-) values)
+indicators = environment_data %>% 
+  group_by(site_visit_code) %>% 
+  filter(depth_water_cm != -999 & depth_water_cm >= 0) %>% 
+  rename(surface_water_depth_cm = depth_water_cm) %>% 
   select(site_visit_code, surface_water_depth_cm) %>% 
   right_join(indicators,by="site_visit_code") %>% 
   arrange(site_visit_code)
@@ -466,7 +478,7 @@ indicators = vegetation_data %>%
   summarize(moss_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(moss_cover_percent = case_when(is.na(moss_cover_percent) ~ 0,
-                                        TRUE ~ moss_cover_percent))
+                                          TRUE ~ moss_cover_percent))
 
 # Calculate moss:lichen ratio
 indicators = indicators %>%
@@ -483,7 +495,7 @@ indicators = vegetation_data %>%
   summarize(tussock_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(tussock_cover_percent = case_when(is.na(tussock_cover_percent) ~ 0,
-                                           TRUE ~ tussock_cover_percent))
+                                          TRUE ~ tussock_cover_percent))
 
 # Calculate Poaceae cover
 indicators = vegetation_data %>%
@@ -533,7 +545,7 @@ indicators = vegetation_data %>%
   summarize(salix_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(salix_cover_percent = case_when(is.na(salix_cover_percent) ~ 0,
-                                         TRUE ~ salix_cover_percent))
+                                          TRUE ~ salix_cover_percent))
 
 # Calculate low Salix
 indicators = vegetation_data %>%
@@ -544,7 +556,7 @@ indicators = vegetation_data %>%
   summarize(lowsal_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(lowsal_cover_percent = case_when(is.na(lowsal_cover_percent) ~ 0,
-                                          TRUE ~ lowsal_cover_percent))
+                                               TRUE ~ lowsal_cover_percent))
 
 # Calculate dwarf Salix
 indicators = vegetation_data %>%
@@ -555,7 +567,7 @@ indicators = vegetation_data %>%
   summarize(dwasal_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(dwasal_cover_percent = case_when(is.na(dwasal_cover_percent) ~ 0,
-                                          TRUE ~ dwasal_cover_percent))
+                                                     TRUE ~ dwasal_cover_percent))
 
 # Calculate dwarf Salix plus Dryas
 indicators = vegetation_data %>%
@@ -567,7 +579,7 @@ indicators = vegetation_data %>%
   summarize(dwasal_dryas_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(dwasal_dryas_cover_percent = case_when(is.na(dwasal_dryas_cover_percent) ~ 0,
-                                                TRUE ~ dwasal_dryas_cover_percent))
+                                         TRUE ~ dwasal_dryas_cover_percent))
 
 # Calculate shrub cover
 indicators = vegetation_data %>%
@@ -588,7 +600,7 @@ indicators = vegetation_data %>%
   summarize(herbac_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(herbac_cover_percent = case_when(is.na(herbac_cover_percent) ~ 0,
-                                          TRUE ~ herbac_cover_percent))
+                                         TRUE ~ herbac_cover_percent))
 
 # Calculate dwarf shrub cover
 shrub_join = shrub_data %>%
@@ -616,7 +628,7 @@ indicators = vegetation_data %>%
   summarize(dwashr_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(dwashr_cover_percent = case_when(is.na(dwashr_cover_percent) ~ 0,
-                                          TRUE ~ dwashr_cover_percent))
+                                         TRUE ~ dwashr_cover_percent))
 
 # Calculate low shrub cover
 indicators = vegetation_data %>%
@@ -648,7 +660,7 @@ indicators = shrub_data %>%
   summarize(lowsal_max_height = mean(height_cm)) %>% 
   right_join(indicators, by = 'site_visit_code') %>% 
   mutate(lowsal_max_height = case_when(is.na(lowsal_max_height) ~ 0,
-                                       TRUE ~ lowsal_max_height))
+                                        TRUE ~ lowsal_max_height))
 
 # Calculate low Salix mean height
 indicators = shrub_data %>% 
@@ -659,7 +671,7 @@ indicators = shrub_data %>%
   summarize(lowsal_mean_height = mean(height_cm)) %>% 
   right_join(indicators, by = 'site_visit_code') %>% 
   mutate(lowsal_mean_height = case_when(is.na(lowsal_mean_height) ~ 0,
-                                        TRUE ~ lowsal_mean_height))
+                                          TRUE ~ lowsal_mean_height))
 
 # Calculate tall shrub cover
 indicators = vegetation_data %>%
@@ -707,19 +719,19 @@ indicators = indicators %>%
 indicators = vegetation_data %>%
   left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
   filter(grepl('Salix ovalifolia', name_accepted) |
-           name_accepted == 'Puccinellia phryganodes' |
-           name_accepted == 'Puccinellia vaginata' |
-           name_accepted == 'Carex subspathacea' |
-           name_accepted == 'Carex ramenskii' |
-           grepl('Dupontia fisheri', name_accepted) |
-           name_accepted == 'Stellaria humifusa' |
-           name_accepted == 'Cochlearia groenlandica'
+            name_accepted == 'Puccinellia phryganodes' |
+            name_accepted == 'Puccinellia vaginata' |
+            name_accepted == 'Carex subspathacea' |
+            name_accepted == 'Carex ramenskii' |
+            grepl('Dupontia fisheri', name_accepted) |
+            name_accepted == 'Stellaria humifusa' |
+            name_accepted == 'Cochlearia groenlandica'
          & dead_status == 'FALSE') %>%
   group_by(site_visit_code) %>%
   summarize(haloph_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(haloph_cover_percent = case_when(is.na(haloph_cover_percent) ~ 0,
-                                          TRUE ~ haloph_cover_percent))
+                                         TRUE ~ haloph_cover_percent))
 
 # Calculate dead cover
 indicators = vegetation_data %>%
@@ -728,7 +740,7 @@ indicators = vegetation_data %>%
   summarize(dead_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(dead_cover_percent = case_when(is.na(dead_cover_percent) ~ 0,
-                                        TRUE ~ dead_cover_percent))
+                                          TRUE ~ dead_cover_percent))
 
 #### CALCULATE VASCULAR SPECIES INDICATORS ####------------------------------
 
@@ -740,7 +752,7 @@ indicators = vegetation_data %>%
   summarize(alnus_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(alnus_cover_percent = case_when(is.na(alnus_cover_percent) ~ 0,
-                                         TRUE ~ alnus_cover_percent))
+                                          TRUE ~ alnus_cover_percent))
 
 # Calculate Arctagrostis latifolia cover
 indicators = vegetation_data %>%
@@ -750,7 +762,7 @@ indicators = vegetation_data %>%
   summarize(arclat_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(arclat_cover_percent = case_when(is.na(arclat_cover_percent) ~ 0,
-                                          TRUE ~ arclat_cover_percent))
+                                         TRUE ~ arclat_cover_percent))
 
 # Calculate Arctophila fulva cover
 indicators = vegetation_data %>%
@@ -872,7 +884,7 @@ indicators = vegetation_data %>%
   summarize(dryas_cover_percent = sum(cover_percent)) %>%
   right_join(indicators, by = 'site_visit_code') %>%
   mutate(dryas_cover_percent = case_when(is.na(dryas_cover_percent) ~ 0,
-                                         TRUE ~ dryas_cover_percent))
+                                                TRUE ~ dryas_cover_percent))
 
 # Calculate Empetrum nigrum cover
 indicators = vegetation_data %>%
@@ -1156,7 +1168,8 @@ longform_data = output_data %>%
   left_join(site_visit_data, by = 'site_visit_code') %>%
   select(site_code, site_visit_code, stratum_code, stratum_name, physiography, plot_category,
          latitude_dd, longitude_dd, indicator, value) %>% 
-  filter(!(indicator == 'surface_water_depth_cm' & is.na(value))) # AD added this
+  filter(!(indicator == 'surface_water_depth_cm' & is.na(value))) %>% # AD added this
+  filter(!(indicator == 'depth_groundwater_cm' & is.na(value))) # AD added this
 
 # Explore remaining null values
 summary(longform_data$value)
