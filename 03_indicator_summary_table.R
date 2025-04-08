@@ -2,8 +2,8 @@
 # ---------------------------------------------------------------------------
 # Summarize AIM indicators
 # Author: Amanda Droghini, Timm Nawrocki, Alaska Center for Conservation Science
-# Last Updated: 2024-09-03
-# Usage: Script should be executed in R 4.4.1+.
+# Last Updated: 2025-04-07
+# Usage: Script should be executed in R 4.4.3+.
 # Description: "Summarize AIM indicators" creates an indicator summary table from the AKVEG Database.
 # ---------------------------------------------------------------------------
 
@@ -718,14 +718,12 @@ indicators = indicators %>%
 # Calculate halophytic cover percent
 indicators = vegetation_data %>%
   left_join(functional_data, by = c('name_accepted' = 'taxon_accepted')) %>%
-  filter(grepl('Salix ovalifolia', name_accepted) |
-            name_accepted == 'Puccinellia phryganodes' |
-            name_accepted == 'Puccinellia vaginata' |
-            name_accepted == 'Carex subspathacea' |
-            name_accepted == 'Carex ramenskii' |
-            grepl('Dupontia fisheri', name_accepted) |
-            name_accepted == 'Stellaria humifusa' |
-            name_accepted == 'Cochlearia groenlandica'
+  filter(name_accepted == 'Puccinellia phryganodes' |
+           name_accepted == 'Puccinellia vaginata' |
+           name_accepted == 'Carex subspathacea' |
+           name_accepted == 'Carex ramenskii' |
+           name_accepted == 'Stellaria humifusa' |
+           name_accepted == 'Cochlearia groenlandica'
          & dead_status == 'FALSE') %>%
   group_by(site_visit_code) %>%
   summarize(haloph_cover_percent = sum(cover_percent)) %>%
