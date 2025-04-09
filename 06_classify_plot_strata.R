@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------
 # "Create Key for Classifying BLM AIM NPR-A Plots"
 # Author: Amanda Droghini, Lindsey Flagstad
-# Last Updated: 2025-04-07
+# Last Updated: 2025-04-08
 # Usage: Must be executed in R version 4.4.3+.
 # Description: "Create Key for Classifying BLM AIM NPR-A Plots" creates a dichotomous key using various indicators and thresholds and applies it to NPR-A plots.
 # ---------------------------------------------------------------------------
@@ -37,7 +37,7 @@ veg_cover_file = path(query_folder, 'npra_05_vegetation_query.sql')
 indicators_input = path(data_folder, 'Data/Data_Output/summary/AIM_NPRA_Indicator_Summary.csv')
 
 # Define output files
-autokey_output = path(data_folder, 'Autokey', 'Draft_Classification_20250407.csv')
+autokey_output = path(data_folder, 'Autokey', 'Draft_Classification_20250408.csv')
 
 # Read in local data ----
 indicators_original = read_csv(indicators_input)
@@ -101,32 +101,18 @@ indicators = indicators %>%
          artbor_biotic_ratio = artbor_cover_percent / biotic_top_cover_percent)
   
 # Classification ----
-# 1. If bare ground % > 20  and Umbilicaria cover % > 10 then ‘Arctic Barren’
-# 2. If halophytic cover % >2 then ‘Tide Marsh Coastal Wetland’
-# 3. If bare ground % > 25 and Leymus mollis cover % >10 then ‘Barrier Island, Spits, Beaches and Dunes’
-# 4. If bare ground % > 60% and (active layer depth > 80 cm or is.na) and (riparian Salix cover % / biotic cover % >0.1, or Artemisia borealis % / biotic cover % >10 or Poaceae > 4%) and Eurybia sibirica % = 0, then ‘Inland Dune’
-# 5. If bare ground % > 5% and riparian Salix cover % >5 or Eurybia sibirica % >2 or Dryas integrifolia % >25% then ‘Arctic Floodplain Shrubland’
-# 6. If dwarf shrub cover % > 20 and tussock cover % < 5 and wet sedge % = 0 and aquatic moss % = 0 then ‘Alpine Dwarf Shrub Tundra’
-# 7.	If Betula nana + Salix pulchra % >= 40 and tussock cover % < 15, then ‘Foothills Low Shrub Tundra’
-# 8.	If surface water cover % >10 or wetland sedge % >40 and Sphagnum cover % > 5 then ‘Foothills Wetlands’
-# 9.	If surface water cover % >10 or wetland sedge % >10 and if aquatic moss % > 10 and pH > 5 and moss:lichen ratio > 0.8, then ‘Arctic Floodplain Poorly Drained’
-# 10.	If surface water cover % > 15 or wetland sedge > 20 and Carex aquatilis % + Eriophorum angustifolium %> 10 then ‘Sand Sheet Wetland’
-# 11.	If surface water cover % >10 and Carex aquatilis % + Eriophorum angustifolium Carex chordorrhiza? %> 10 then ‘Coastal Plain Wetland’
-# 12.	If tussock: wetland sedge ratio >0.6 and Ericaceae cover % > 30 then ‘Foothills Tussock Tundra’
-# 13.	If tussock: wetland sedge ratio >0.6 and Cladonia + Flavocetraria + Thamnolia cover % > 10 then ‘Sand Sheet Moist Tundra’ 
-# 14.	If Ericaceae cover % >10 and Carex aquatilis % + Eriophorum angustifolium %> 10 then ‘Coastal Plain Moist Tundra’ 
 autokey = indicators %>% 
   mutate(auto_class = case_when(bare_ground_cover_percent > 20 & umbili_cover_percent > 10 ~ 'Arctic Barren',
                                 haloph_cover_percent > 2 ~ 'Tide Marsh Coastal Wetland',
                                 bare_ground_cover_percent > 25 & leymus_cover_percent > 10 ~ 'Barrier Island, Spits, Beaches and Dunes',
                                 bare_ground_cover_percent > 60 & eursib_cover_percent == 0 & (depth_active_layer_cm > 80 | is.na(depth_active_layer_cm)) & (ripsal_biotic_ratio > 0.1 | artbor_biotic_ratio > 0.1 | poafam_cover_percent > 4) ~ 'Inland Dune',
-                                bare_ground_cover_percent > 5 & (ripsal_cover_percent > 5 | eursib_cover_percent > 2 | dryint_cover_percent > 25 | equarv_cover_percent > 5 | arcrub_cover_percent > 5) ~ 'Arctic Floodplain Shrubland',
+                                ripsal_cover_percent > 5 | eursib_cover_percent > 2 | dryint_cover_percent > 25 | equarv_cover_percent > 5 | arcrub_cover_percent > 5 ~ 'Arctic Floodplain Shrubland',
                                 dwashr_cover_percent > 20 & tussock_cover_percent < 5 & wetsed_cover_percent == 0 & aqumos_cover_percent == 0 ~ 'Alpine Dwarf Shrub Tundra',
                                 (salpul_cover_percent + betnan_cover_percent >= 40) & tussock_cover_percent < 15 ~ 'Foothills Low Shrub Tundra',
-                                (surface_water_cover_percent > 10 | wetsed_cover_percent > 40) & sphagn_cover_percent > 5 ~ 'Foothills Wetlands',
-                                (surface_water_cover_percent > 10 | wetsed_cover_percent > 10) & aqumos_cover_percent > 10 & soil_pH > 5 & moss_lichen_ratio > 0.8 ~ 'Arctic Floodplain Poorly Drained',
-                                (surface_water_cover_percent > 15 | wetsed_cover_percent > 20) & (caraqu_cover_percent + eriang_cover_percent > 10) ~ 'Sand Sheet Wetland',
-                                surface_water_cover_percent > 10 & (caraqu_cover_percent + eriang_cover_percent + carcho_cover_percent > 10) ~ 'Coastal Plain Wetland',
+                                tussock_cover_percent < 3 & wetsed_cover_percent > 40 & caraqu_cover_percent > 15 & dryas_cover_percent == 0 & lichen_cover_percent <= 2 & (organic_depth_cm > 15 | is.na(organic_depth_cm)) & (sphagn_cover_percent + salfus_cover_percent + carcho_cover_percent > 10) ~ 'Foothills Wetlands',
+                                soil_pH > 5.6 & wetsed_cover_percent > 10 & tussock_cover_percent < 10 & aqumos_cover_percent > 5 & sphagn_cover_percent < 6 & (organic_depth_cm >= 15 | is.na(organic_depth_cm)) & (surface_water_cover_percent > 1 | !is.na(depth_groundwater_cm)) ~ 'Arctic Floodplain Poorly Drained',
+                                (surface_water_cover_percent > 15 | wetsed_cover_percent > 20) & ((caraqu_cover_percent + eriang_cover_percent > 10) | carbig_cover_percent > 1 ) ~ 'Sand Sheet Wetland',
+                                surface_water_cover_percent > 10 & (caraqu_cover_percent + eriang_cover_percent + carcho_cover_percent > 1) ~ 'Coastal Plain Wetland',
                                 tussock_wetsed_ratio > 0.6 & erifam_cover_percent > 30 ~ 'Foothills Tussock Tundra',
                                 tussock_wetsed_ratio > 0.6 & (cladon_cover_percent + flavoc_cover_percent + thamno_cover_percent > 10) ~ 'Sand Sheet Moist Tundra', 
                                 erifam_cover_percent > 10 & (caraqu_cover_percent + eriang_cover_percent >10) ~ 'Coastal Plain Moist Tundra',
@@ -141,14 +127,18 @@ autokey_final = autokey %>%
          surface_water_cover_percent,
          biotic_top_cover_percent,
          depth_active_layer_cm,
+         depth_groundwater_cm,
          soil_pH,
+         organic_depth_cm,
          arcrub_cover_percent,
          artbor_cover_percent,
          aqumos_cover_percent,
          betnan_cover_percent,
          caraqu_cover_percent,
+         carbig_cover_percent,
          carcho_cover_percent,
          cladon_cover_percent,
+         dryas_cover_percent,
          dryint_cover_percent,
          dwashr_cover_percent,
          equarv_cover_percent,
@@ -160,6 +150,7 @@ autokey_final = autokey %>%
          leymus_cover_percent,
          poafam_cover_percent,
          ripsal_cover_percent,
+         salfus_cover_percent,
          salpul_cover_percent,
          sphagn_cover_percent,
          thamno_cover_percent,
@@ -171,7 +162,7 @@ autokey_final = autokey %>%
          tussock_wetsed_ratio
          ) %>% 
   arrange(auto_class, stratum_name) %>% 
-  mutate(across(where(is.numeric), round, digits=3)) # Round all numeric columns to 3 digits, thanks to @upuil for the solution: https://stackoverflow.com/questions/9063889/how-to-round-a-data-frame-in-r-that-contains-some-character-variables
+  mutate(across(where(is.numeric), ~round(., digits=3))) # Round all numeric columns to 3 digits, thanks to @upuil for the solution: https://stackoverflow.com/questions/9063889/how-to-round-a-data-frame-in-r-that-contains-some-character-variables
 
 # QA/QC ----
 temp = autokey_final %>% 
