@@ -1,6 +1,6 @@
 # Indicator Explorer for AIM NPR-A Data
 
-![Screenshot from the Indicator Explorer app](assets/app_screenshot_resize.png)\
+![Screenshot from the Indicator Explorer app](assets/app_screenshot_resize.png)
  
 ## About the Project 🌿
 This repository provides a set of R and Python scripts to process data from vegetation surveys and to create the 
